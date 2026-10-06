@@ -175,7 +175,15 @@ export class Game {
       this.acc += dt * SPEEDS[this.speed];
       let steps = 0;
       while (this.acc >= 1 && steps < 8) {
-        advanceDay(s);
+        try {
+          advanceDay(s);
+        } catch (err) {
+          console.error('Simulation error', err);
+          this.speed = 0;
+          this.acc = 0;
+          this.toast('Simulation error — game paused. Please save and report it.', 'err');
+          break;
+        }
         this.acc -= 1;
         steps++;
         ticked = true;

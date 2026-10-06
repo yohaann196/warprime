@@ -9,6 +9,7 @@ import { dateString } from '../sim/state';
 import { Flag, fmt, signed } from './components';
 import type { Game } from './game';
 import { SPEEDS } from './game';
+import { mainRenderer } from './MapView';
 
 function ledgerTip(g: Game): string {
   const n = g.player;
@@ -40,13 +41,22 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
   const pop = nationPop(s, n.id);
   return (
     <header class="topbar">
-      <div class="tb-nation" data-tip={`— ${n.name}\nEconomy: ${ECON_SYSTEMS[n.econSystem].name}\nDoctrine: ${doc?.name ?? '—'}\nPopulation: ${fmt(pop / 1000)}M`}>
+      <button
+        class="tb-nation"
+        onClick={() => {
+          const cap = s.provinces[n.capital];
+          g.selectedProvince = cap.id;
+          mainRenderer?.centerOn(cap.center[0], cap.center[1], Math.max(mainRenderer.cam.zoom, mainRenderer.minZoom() * 2.2));
+          g.notify();
+        }}
+        data-tip={`— ${n.name}\nEconomy: ${ECON_SYSTEMS[n.econSystem].name}\nDoctrine: ${doc?.name ?? '—'}\nPopulation: ${fmt(pop / 1000)}M\nClick to go to your capital`}
+      >
         <Flag nation={n} size={24} />
         <div>
           <div class="tb-name">{n.name}</div>
           <div class="tb-sub">{ERAS[n.era].name}</div>
         </div>
-      </div>
+      </button>
 
       <div class="tb-time">
         <div class="tb-date">{dateString(s)}</div>

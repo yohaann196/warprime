@@ -116,7 +116,7 @@ export function ProvincePanel({ g }: { g: Game }) {
 
       {!mine && owner && !p.isSea && (
         <div class="pp-actions">
-          <button onClick={() => g.cmd({ type: 'sabotage', province: pid })} disabled={!!canSabotage(s, s.player, pid)} data-tip={`Covert sabotage (${fmt(SABOTAGE_COST * (1 + me.era * 0.5))}): may destroy a building. Getting caught angers them.\n${canSabotage(s, s.player, pid) ?? ''}`}>
+          <button onClick={() => g.cmd({ type: 'sabotage', province: pid })} disabled={!!canSabotage(s, s.player, pid)} data-tip={`Covert sabotage (${fmt(SABOTAGE_COST * Math.pow(1.6, me.era))}): may destroy a building. Getting caught angers them.\n${canSabotage(s, s.player, pid) ?? ''}`}>
             🕵️ Sabotage
           </button>
           {me.nukes > 0 && (

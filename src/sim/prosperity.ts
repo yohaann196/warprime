@@ -66,10 +66,10 @@ export function ranking(state: GameState): { nation: number; prosperity: number 
 
 export const VICTORY_INFO: Record<VictoryType, { name: string; desc: string }> = {
   domination: { name: 'Domination', desc: 'Own 55% of all land provinces.' },
-  hegemon: { name: 'Economic Hegemon', desc: 'From 1950: produce 35% of world GDP for 2 straight years.' },
-  golden_age: { name: 'Golden Age', desc: 'From 1950: be #1 in prosperity with happiness and stability above 75 for 10 straight years.' },
+  hegemon: { name: 'Economic Hegemon', desc: 'From 1950: produce 40% of world GDP for 3 straight years.' },
+  golden_age: { name: 'Golden Age', desc: 'From 1950: lead the prosperity ranking by 5+ points with happiness and stability of 85+ for 15 straight years.' },
   scientific: { name: 'Scientific', desc: 'Complete the Singularity Project.' },
-  diplomatic: { name: 'Diplomatic', desc: 'From 1950: lead a bloc (you, allies and puppets) holding 65% of the world population.' },
+  diplomatic: { name: 'Diplomatic', desc: 'From 1950: lead a bloc of 3+ nations (you, allies and puppets) holding 65% of the world population.' },
   prosperity: { name: 'Most Prosperous', desc: 'Have the highest Prosperity Index when the era ends.' },
 };
 
@@ -97,16 +97,17 @@ export function checkVictory(state: GameState): void {
     if (ownedProvinces(state, n.id).length / land >= 0.55) return win(n.id, 'domination');
     if (n.tech.researched.includes('singularity_project')) return win(n.id, 'scientific');
     const lateGame = yearOf(state) >= 1950;
-    if (n.gdp / worldGdp >= 0.35 && lateGame) n.daysHegemon += 30;
+    if (n.gdp / worldGdp >= 0.4 && lateGame) n.daysHegemon += 30;
     else n.daysHegemon = 0;
-    if (n.daysHegemon >= 730) return win(n.id, 'hegemon');
-    if (lateGame && n.id === top && n.happiness >= 75 && n.stability >= 75) n.yearsGolden += 30;
+    if (n.daysHegemon >= 365 * 3) return win(n.id, 'hegemon');
+    const lead = rank.length > 1 ? n.prosperity - rank[1].prosperity : 99;
+    if (lateGame && n.id === top && lead >= 5 && n.happiness >= 85 && n.stability >= 85) n.yearsGolden += 30;
     else n.yearsGolden = 0;
-    if (n.yearsGolden >= 3650) return win(n.id, 'golden_age');
+    if (n.yearsGolden >= 365 * 15) return win(n.id, 'golden_age');
     const bloc = new Set([n.id, ...alliesOf(state, n.id), ...puppetsOf(state, n.id)]);
     let blocPop = 0;
     for (const b of bloc) blocPop += nationPop(state, b);
-    if (lateGame && bloc.size > 1 && blocPop / worldPop >= 0.65 && n.id === rank.find((r) => bloc.has(r.nation))?.nation) return win(n.id, 'diplomatic');
+    if (lateGame && bloc.size >= 3 && blocPop / worldPop >= 0.65 && n.id === rank.find((r) => bloc.has(r.nation))?.nation) return win(n.id, 'diplomatic');
   }
 
   if (yearOf(state) >= state.settings.endYear && top >= 0) win(top, 'prosperity');

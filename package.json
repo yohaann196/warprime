@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src tests"
+    "lint": "eslint src tests scripts",
+    "sim": "tsx scripts/balance-sim.ts",
+    "e2e": "node scripts/e2e-smoke.mjs"
   },
   "dependencies": {
     "d3-delaunay": "^6.0.4",

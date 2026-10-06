@@ -13,6 +13,7 @@ import {
   provinceValue,
   puppetsOf,
   sideOf,
+  removePact,
   warsOf,
 } from '../query';
 import { rand } from '../rng';
@@ -53,13 +54,13 @@ export function declareWar(state: GameState, attacker: number, target: number): 
   if (alliance) breakPact(state, attacker, alliance, true);
   const truce = findPact(state, 'truce', attacker, target);
   if (truce) {
-    state.pacts.splice(state.pacts.indexOf(truce), 1);
+    removePact(state, truce);
     A.trust = Math.max(0, A.trust - 15);
     worldOpinion(state, attacker, -8, 'Broke a truce', 0.01);
   }
   const nap = findPact(state, 'nap', attacker, target);
   if (nap) {
-    state.pacts.splice(state.pacts.indexOf(nap), 1);
+    removePact(state, nap);
     A.trust = Math.max(0, A.trust - 20);
     worldOpinion(state, attacker, -10, 'Broke a non-aggression pact', 0.01);
     log(state, `${A.name} tore up its non-aggression pact with ${T.name}!`, 'diplo', [attacker, target]);
@@ -112,7 +113,7 @@ export function declareWar(state: GameState, attacker: number, target: number): 
 
 export function refuseCall(state: GameState, ally: number, caller: number): void {
   const pact = findPact(state, 'alliance', ally, caller);
-  if (pact) state.pacts.splice(state.pacts.indexOf(pact), 1);
+  if (pact) removePact(state, pact);
   state.nations[ally].trust = Math.max(0, state.nations[ally].trust - 8);
   addOpinion(state, caller, ally, -30, 'Abandoned us in war', 0.02);
   log(state, `${state.nations[ally].name} refused to honour its alliance with ${state.nations[caller].name}.`, 'diplo', [ally, caller]);
@@ -244,6 +245,7 @@ export function makePeace(state: GameState, war: War, receiver: WarSide, terms: 
   const W = state.nations[winner];
   const L = state.nations[loser];
   const parts: string[] = [];
+  let annexedCount = 0;
 
   for (const pid of terms.cede) {
     const p = state.provinces[pid];
@@ -259,15 +261,23 @@ export function makePeace(state: GameState, war: War, receiver: WarSide, terms: 
     parts.push(`${Math.round(terms.money)} in reparations`);
   }
   if (terms.annex) {
+    annexedCount = ownedProvinces(state, loser).length;
     for (const pid of [...ownedProvinces(state, loser)]) transferProvince(state, pid, winner);
     parts.push('full annexation');
   } else if (terms.puppet && L.alive) {
-    for (const p of [...state.pacts]) if (p.type === 'alliance' && (p.a === loser || p.b === loser)) state.pacts.splice(state.pacts.indexOf(p), 1);
-    for (const p of [...state.pacts]) if (p.type === 'puppet' && p.a === loser) state.pacts.splice(state.pacts.indexOf(p), 1);
+    for (const p of [...state.pacts]) if (p.type === 'alliance' && (p.a === loser || p.b === loser)) removePact(state, p);
+    for (const p of [...state.pacts]) if (p.type === 'puppet' && p.a === loser) removePact(state, p);
     state.pacts.push({ id: state.nextId++, type: 'puppet', a: winner, b: loser, start: state.day, until: -1, liberty: 20 });
     parts.push('puppet status');
   }
   if (terms.cede.length || terms.money || terms.puppet || terms.annex) addOpinion(state, loser, winner, -30, 'Humiliated us in war', 0.01);
+  // land grabs alarm everyone (the bigger the conqueror already is, the more)
+  const gained = terms.annex ? annexedCount : terms.cede.length;
+  if (gained > 0) {
+    const size = ownedProvinces(state, winner).length;
+    const ae = -gained * (2 + size / 25);
+    worldOpinion(state, winner, ae, 'Aggressive expansion', 0.012, [...war[receiver]]);
+  }
   for (const a of war.attackers)
     for (const d of war.defenders)
       if (state.nations[a].alive && state.nations[d].alive && !findPact(state, 'truce', a, d))

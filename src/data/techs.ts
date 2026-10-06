@@ -11,6 +11,8 @@ export interface TechDef {
   mods?: Mods;
   requires?: string[];
   costMult?: number;
+  minYear?: number;
+  minDays?: number; // passive research can't finish it faster than this (clicks can)
 }
 
 export const ERAS = [
@@ -73,7 +75,7 @@ export const TECHS: TechDef[] = [
   { id: 'universal_income', name: 'Universal Income', line: 'society', era: 4, desc: 'Prosperity shared.', mods: { happiness: 10 } },
   { id: 'smart_cities', name: 'Smart Cities', line: 'society', era: 4, desc: 'Efficient urban life.', mods: { services: 0.2, popGrowth: 0.05 } },
   { id: 'ai_research', name: 'Artificial Intelligence', line: 'science', era: 4, desc: 'Machines that think.', mods: { research: 0.3 } },
-  { id: 'singularity_project', name: 'Singularity Project', line: 'science', era: 4, desc: 'SCIENTIFIC VICTORY: complete this megaproject to win.', requires: ['ai_research', 'fusion_power'], costMult: 4 },
+  { id: 'singularity_project', name: 'Singularity Project', line: 'science', era: 4, desc: 'SCIENTIFIC VICTORY: a decades-long megaproject. Complete it to win.', requires: ['ai_research', 'fusion_power'], costMult: 30, minYear: 2032, minDays: 5475 },
 ];
 
 export const TECH_BY_ID: Record<string, TechDef> = Object.fromEntries(TECHS.map((t) => [t.id, t]));
@@ -82,7 +84,7 @@ export const STARTING_TECHS: string[] = [];
 
 /** Research points needed. */
 export function techCost(t: TechDef): number {
-  return Math.round(400 * Math.pow(2.1, t.era) * (t.costMult ?? 1));
+  return Math.round(400 * Math.pow(3, t.era) * (t.costMult ?? 1));
 }
 
 export const TECHS_TO_ADVANCE_ERA = 4;

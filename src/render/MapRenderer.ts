@@ -373,6 +373,7 @@ export class MapRenderer {
     }
 
     if (!this.opts.preview) {
+      if (this.game.mapMode === 'diplomacy') this.drawTradeRoutes(ctx, z, now);
       this.drawMarkers(ctx, z, now);
       this.drawArrows(ctx, z, now);
     }
@@ -478,6 +479,37 @@ export class MapRenderer {
       ctx.lineTo(b[0] - h * Math.cos(ang + 0.45), b[1] - h * Math.sin(ang + 0.45));
       ctx.closePath();
       ctx.fill();
+    }
+  }
+
+  /** Your trade contracts as curved routes between capitals, with cargo tokens (frozen at war). */
+  private drawTradeRoutes(ctx: CanvasRenderingContext2D, z: number, now: number): void {
+    const s = this.state;
+    const me = s.player;
+    for (const p of s.pacts) {
+      if (p.type !== 'trade' || (p.a !== me && p.b !== me)) continue;
+      const a = s.provinces[s.nations[p.a].capital].center;
+      const b = s.provinces[s.nations[p.b].capital].center;
+      const mx = (a[0] + b[0]) / 2 - (b[1] - a[1]) * 0.15;
+      const my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * 0.15;
+      const frozen = atWar(s, p.a, p.b);
+      ctx.strokeStyle = frozen ? 'rgba(150,150,150,0.6)' : 'rgba(255,214,90,0.85)';
+      ctx.lineWidth = 2 / z;
+      ctx.setLineDash([4 / z, 4 / z]);
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.quadraticCurveTo(mx, my, b[0], b[1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (let k = 0; k < 3; k++) {
+        const t = frozen ? (k + 1) / 4 : ((now / 4000 + k / 3) % 1);
+        const x = (1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * mx + t * t * b[0];
+        const y = (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * my + t * t * b[1];
+        ctx.fillStyle = frozen ? '#999' : '#ffd65a';
+        ctx.beginPath();
+        ctx.arc(x, y, 3 / z, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 

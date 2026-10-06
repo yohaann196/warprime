@@ -90,3 +90,18 @@ describe('economy', () => {
     expect(applyCommand(s, s.player, { type: 'switchEcon', system: 'free_market' }).ok).toBe(false);
   });
 });
+
+describe('research', () => {
+  it('the Singularity Project cannot be rushed by passive research', async () => {
+    const { researchDay } = await import('../src/sim/tech');
+    const { TECH_BY_ID, techCost } = await import('../src/data/techs');
+    const s = game();
+    const n = s.nations[s.player];
+    n.tech.current = 'singularity_project';
+    n.research = 1e9;
+    researchDay(s, n);
+    const t = TECH_BY_ID.singularity_project;
+    expect(n.tech.progress).toBeCloseTo(techCost(t) / t.minDays!, 3);
+    expect(n.tech.researched).not.toContain('singularity_project');
+  });
+});

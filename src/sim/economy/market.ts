@@ -1,7 +1,7 @@
 // Global market: dynamic prices, automatic surplus selling / shortage buying, trade contracts and loans.
 import { BASE_PRICES } from '../../data/buildings';
 import { mod } from '../modifiers';
-import { atWar, log } from '../query';
+import { atWar, log, removePact } from '../query';
 import { GOODS, type GameState, type Good, type Nation } from '../state';
 
 const BASE_VOLUME = 40;
@@ -118,7 +118,7 @@ export function contractsDay(state: GameState): void {
   for (const pact of [...state.pacts]) {
     if (pact.until >= 0 && pact.until <= state.day) {
       if (pact.type === 'loan') settleLoan(state, pact.a, pact.b, pact.amount ?? 0);
-      state.pacts.splice(state.pacts.indexOf(pact), 1);
+      removePact(state, pact);
       continue;
     }
     if (pact.type === 'trade' && pact.good) {

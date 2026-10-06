@@ -4,7 +4,7 @@ import { hasTech, markDirty } from '../query';
 import type { Division, GameState, Good, Nation, UnitType } from '../state';
 
 export function unitCost(state: GameState, n: Nation, type: UnitType): number {
-  return Math.round(UNITS[type].cost * mult(state, n.id, 'unitCost'));
+  return Math.round(UNITS[type].cost * mult(state, n.id, 'unitCost') * Math.pow(1.4, n.era));
 }
 
 export function canRecruit(state: GameState, n: Nation, type: UnitType, province: number): string | null {

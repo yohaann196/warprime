@@ -4,6 +4,11 @@ import { mult } from '../modifiers';
 import { hasTech, log, ownedProvinces } from '../query';
 import type { BuildingId, GameState, Good, Nation, Province } from '../state';
 
+/** Prices rise with each era so money stays meaningful as economies grow. */
+export function eraCost(era: number): number {
+  return Math.pow(1.6, era);
+}
+
 export function maxConcurrentBuilds(n: Nation): number {
   return 2 + Math.floor(n.institutions.bureaucracy / 2) + Math.floor(n.institutions.industry / 3);
 }
@@ -14,7 +19,7 @@ export function activeBuilds(state: GameState, n: Nation): number {
 
 export function costOf(state: GameState, n: Nation, p: Province, b: BuildingId): number {
   const def = BUILDINGS[b];
-  return Math.round(buildingCost(def, p.buildings[b] ?? 0) * mult(state, n.id, 'buildCost') * (1 + 0.4 * n.era));
+  return Math.round(buildingCost(def, p.buildings[b] ?? 0) * mult(state, n.id, 'buildCost') * eraCost(n.era));
 }
 
 /** Why a building cannot be built here, or null if it can. */
@@ -53,7 +58,7 @@ export function cancelBuilding(n: Nation, p: Province): void {
 }
 
 export function roadCost(p: Province, era = 0): number {
-  return Math.round(120 * Math.pow(1.9, p.roads) * (p.terrain === 'mountains' ? 2 : p.terrain === 'hills' ? 1.4 : 1) * (1 + 0.4 * era));
+  return Math.round(120 * Math.pow(1.9, p.roads) * (p.terrain === 'mountains' ? 2 : p.terrain === 'hills' ? 1.4 : 1) * eraCost(era));
 }
 
 export const MAX_ROADS = 4;

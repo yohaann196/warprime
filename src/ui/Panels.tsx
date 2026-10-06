@@ -9,7 +9,7 @@ import { activeBuilds, maxConcurrentBuilds } from '../sim/economy/build';
 import { buyPrice, sellPrice } from '../sim/economy/market';
 import { econSwitchCost } from '../sim/institutions';
 import { allMods, breakdown } from '../sim/modifiers';
-import { canBuildNuke } from '../sim/military/nukes';
+import { canBuildNuke, nukeMoneyCost } from '../sim/military/nukes';
 import { militaryStrength } from '../sim/military/units';
 import { PROSPERITY_WEIGHTS, ranking, VICTORY_INFO } from '../sim/prosperity';
 import { ownedProvinces } from '../sim/query';
@@ -332,7 +332,7 @@ export function MilitaryPanel({ g }: { g: Game }) {
         {n.nukeProgress >= 0 ? (
           <Bar value={n.nukeProgress} max={1} color="#a6ff4d" label="warhead in production" />
         ) : (
-          <button class="danger" disabled={!!nukeWhy} onClick={() => g.cmd({ type: 'buildNuke' })} data-tip={nukeWhy ?? `Build a warhead: ${NUKE_COST.money} money, ${NUKE_COST.uranium} uranium, ${NUKE_COST.days} days`}>
+          <button class="danger" disabled={!!nukeWhy} onClick={() => g.cmd({ type: 'buildNuke' })} data-tip={nukeWhy ?? `Build a warhead: ${nukeMoneyCost(n.era)} money, ${NUKE_COST.uranium} uranium, ${NUKE_COST.days} days`}>
             Build warhead
           </button>
         )}

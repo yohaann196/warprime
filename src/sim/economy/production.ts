@@ -288,7 +288,7 @@ function moodDay(state: GameState, n: Nation): void {
   happy += (n.consumerSat - 0.5) * 30;
   happy -= (n.taxRate - 0.25) * 90;
   if (n.foodShortage) happy -= 20;
-  happy += Math.min(10, n.era * 2);
+  happy -= n.era * 2; // rising expectations
   n.happiness += (Math.max(0, Math.min(100, happy)) - n.happiness) * 0.02;
 
   let stab = 35 + n.happiness * 0.45 + mod(state, n.id, 'stability');

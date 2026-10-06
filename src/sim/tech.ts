@@ -11,6 +11,7 @@ export function canResearch(state: GameState, n: Nation, t: TechDef): string | n
   if (n.tech.researched.includes(t.id)) return 'Already researched';
   if (t.era > n.era) return `Requires the ${ERAS[t.era].name}`;
   if (!eraYearOpen(state, t.era)) return `Available from ${ERAS[t.era].year - 8}`;
+  if (t.minYear && yearOf(state) < t.minYear) return `Available from ${t.minYear}`;
   for (const r of t.requires ?? []) if (!n.tech.researched.includes(r)) return `Requires ${TECH_BY_ID[r].name}`;
   return null;
 }
@@ -33,7 +34,9 @@ export function setResearch(state: GameState, n: Nation, id: string): string | n
 
 export function researchDay(state: GameState, n: Nation): void {
   if (!n.tech.current) return;
-  n.tech.progress += n.research;
+  const t = TECH_BY_ID[n.tech.current];
+  const cap = t.minDays ? techCost(t) / t.minDays : Infinity;
+  n.tech.progress += Math.min(n.research, cap);
   checkResearchDone(state, n);
 }
 

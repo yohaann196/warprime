@@ -6,12 +6,14 @@ export const CLICK_HEAT_SCALE = 30; // heat at which a click is worth half
 export const MAX_COMBO = 50;
 
 export function upgradeCost(n: Nation): number {
-  return Math.round(150 * Math.pow(1.85, n.clicks.upgrades));
+  return Math.round(150 * Math.pow(1.7, n.clicks.upgrades) * Math.pow(1.3, n.era));
 }
 
-/** Value of one click. Manual clicks get combo bonus and heat penalty; automated ones do not. */
-export function clickValue(state: GameState, n: Nation, manual = true): number {
-  let v = n.clicks.power * (1 + 0.35 * n.era) * mult(state, n.id, 'clickPower');
+/** Value of one click. Manual clicks get combo bonus and heat penalty; automated ones do not.
+ * Economic clicks (work, research) grow with the size of the economy so they stay relevant. */
+export function clickValue(state: GameState, n: Nation, manual = true, economic = true): number {
+  const scale = economic ? Math.sqrt(Math.max(1, n.gdp / 150)) : 1;
+  let v = n.clicks.power * scale * mult(state, n.id, 'clickPower');
   if (manual) {
     v *= 1 + Math.min(MAX_COMBO, n.clicks.combo) * 0.01;
     v *= heatEfficiency(n);
@@ -23,8 +25,8 @@ export function heatEfficiency(n: Nation): number {
   return 1 / (1 + n.clicks.heat / CLICK_HEAT_SCALE);
 }
 
-function registerClick(state: GameState, n: Nation): { value: number; crit: boolean } {
-  let value = clickValue(state, n, true);
+function registerClick(state: GameState, n: Nation, economic = true): { value: number; crit: boolean } {
+  let value = clickValue(state, n, true, economic);
   const r = ((state.day * 7919 + n.clicks.totalClicks * 104729) % 1000) / 1000; // cheap deterministic roll
   const crit = r < 0.05;
   if (crit) value *= 5;
@@ -67,7 +69,7 @@ export function workClick(state: GameState, n: Nation, provinceId: number): Clic
 export function buildClick(state: GameState, n: Nation, provinceId: number): ClickResult | null {
   const p = state.provinces[provinceId];
   if (!p || p.owner !== n.id || !p.construction) return null;
-  const { value, crit } = registerClick(state, n);
+  const { value, crit } = registerClick(state, n, false);
   const work = value * 0.6;
   p.construction.progress += work;
   return { money: 0, crit, text: `+${fmt(work)} build${crit ? ' CRIT!' : ''}` };
@@ -85,7 +87,7 @@ export function researchClick(state: GameState, n: Nation): ClickResult | null {
 export function battleClick(state: GameState, n: Nation, provinceId: number): ClickResult | null {
   const p = state.provinces[provinceId];
   if (!p) return null;
-  const { value, crit } = registerClick(state, n);
+  const { value, crit } = registerClick(state, n, false);
   const boost = value * 0.04;
   p.clickBoost = Math.min(1.5, (p.clickBoost ?? 0) + boost);
   p.clickBoostBy = n.id;

@@ -72,7 +72,7 @@ export function opinionDay(state: GameState): void {
 }
 
 export function improveRelationsCost(state: GameState, from: number): number {
-  return Math.round(80 * (1 + state.nations[from].era * 0.6));
+  return Math.round(80 * Math.pow(1.6, state.nations[from].era));
 }
 
 export function improveRelations(state: GameState, from: number, to: number): string | null {

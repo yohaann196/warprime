@@ -104,3 +104,19 @@ describe('prosperity', () => {
     }
   });
 });
+
+describe('aggressive expansion', () => {
+  it('taking land worsens everyone else\'s opinion of the conqueror', () => {
+    const s = game();
+    const enemy = landNeighbor(s, s.player);
+    const war = declareWar(s, s.player, enemy);
+    if (typeof war === 'string') throw new Error(war);
+    const provs = s.provinces.filter((p) => p.owner === enemy && !p.isCapital).slice(0, 3);
+    for (const p of provs) p.controller = s.player;
+    markDirty();
+    const bystander = s.nations.find((n) => n.id !== s.player && n.id !== enemy && !war.attackers.includes(n.id) && !war.defenders.includes(n.id))!.id;
+    const before = opinion(s, bystander, s.player);
+    makePeace(s, war, 'attackers', { cede: provs.map((p) => p.id), money: 0, puppet: false, annex: false });
+    expect(opinion(s, bystander, s.player)).toBeLessThan(before - 5);
+  });
+});

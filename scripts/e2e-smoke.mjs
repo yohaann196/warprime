@@ -41,6 +41,11 @@ async function run(viewport, tag) {
   await page.click('button.start');
   await page.waitForTimeout(900);
 
+  // jump to the capital via the nation button (opens the province panel)
+  if (!(await page.$('.work-btn'))) {
+    await page.click('.tb-nation');
+    await page.waitForTimeout(200);
+  }
   // work the capital a few times via the panel button
   for (let i = 0; i < 8; i++) await page.click('.work-btn');
   await page.waitForTimeout(200);
@@ -83,7 +88,45 @@ async function run(viewport, tag) {
       await shot(`6-map-${mode.toLowerCase()}`);
     }
   }
+  if (tag === 'desktop') await diplomacyFlow(page, shot, dismissEvents);
   await page.close();
+}
+
+async function diplomacyFlow(page, shot, dismissEvents) {
+  page.on('dialog', (d) => d.accept());
+  await dismissEvents();
+  await page.click('.tabs button:has-text("Diplomacy")');
+  await page.waitForTimeout(200);
+  await page.click('.nation-row >> nth=0');
+  await page.waitForTimeout(200);
+  // treaty desk: propose a non-aggression pact and read the verdict
+  await page.selectOption('.treaty select', 'nap');
+  await page.waitForTimeout(150);
+  await shot('7-treaty');
+  if (!(await page.$('.evaluation'))) throw new Error('treaty desk shows no AI verdict');
+  await page.click('.treaty button:has-text("Propose")');
+  await page.waitForTimeout(200);
+  // war and peace with the nation that likes us least
+  await page.selectOption('.section select[aria-label="Sort nations"]', 'opinion');
+  const rows = await page.$$('.nation-row');
+  await rows[rows.length - 1].click();
+  await page.waitForTimeout(200);
+  const declare = await page.$('button:has-text("Declare war")');
+  if (!declare) throw new Error('no declare war button');
+  await declare.click();
+  await page.waitForTimeout(300);
+  await dismissEvents();
+  if (!(await page.$('.war-card'))) throw new Error('war did not start');
+  await shot('8-war');
+  const negotiate = await page.$('button:has-text("Negotiate peace")');
+  if (negotiate) {
+    await negotiate.click();
+    await page.waitForTimeout(200);
+    await page.click('.peace-tabs button:has-text("White peace")');
+    await shot('9-peace');
+    await page.click('.peace button:has-text("Send proposal")');
+    await page.waitForTimeout(200);
+  }
 }
 
 await run({ width: 1440, height: 900 }, 'desktop');

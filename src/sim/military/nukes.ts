@@ -7,11 +7,15 @@ import { atWar, hasTech, isFriendly, log, markDirty, ownedProvinces, warBetween 
 import { rand } from '../rng';
 import type { BuildingId, GameState } from '../state';
 
+export function nukeMoneyCost(era: number): number {
+  return Math.round(NUKE_COST.money * Math.pow(1.6, Math.max(0, era - 2)));
+}
+
 export function canBuildNuke(state: GameState, nation: number): string | null {
   const n = state.nations[nation];
   if (!hasTech(state, nation, 'nuclear_weapons')) return 'Requires Nuclear Weapons technology';
   if (n.nukeProgress >= 0) return 'A warhead is already being built';
-  if (n.money < NUKE_COST.money) return `Need ${NUKE_COST.money} money`;
+  if (n.money < nukeMoneyCost(n.era)) return `Need ${nukeMoneyCost(n.era)} money`;
   if (n.stock.uranium < NUKE_COST.uranium) return `Need ${NUKE_COST.uranium} uranium`;
   return null;
 }
@@ -20,7 +24,7 @@ export function startNuke(state: GameState, nation: number): string | null {
   const why = canBuildNuke(state, nation);
   if (why) return why;
   const n = state.nations[nation];
-  n.money -= NUKE_COST.money;
+  n.money -= nukeMoneyCost(n.era);
   n.stock.uranium -= NUKE_COST.uranium;
   n.nukeProgress = 0;
   return null;
@@ -141,7 +145,7 @@ export function canSabotage(state: GameState, nation: number, province: number):
   if (!p || p.isSea || p.owner < 0 || p.owner === nation) return 'Pick a foreign province';
   if (isFriendly(state, nation, p.owner)) return 'Cannot sabotage friends';
   if (n.sabotageCooldown > 0) return `Agents regrouping (${n.sabotageCooldown} days)`;
-  const cost = SABOTAGE_COST * (1 + n.era * 0.5);
+  const cost = SABOTAGE_COST * Math.pow(1.6, n.era);
   if (n.money < cost) return `Need ${Math.round(cost)} money`;
   if (!Object.values(p.buildings).some((v) => (v ?? 0) > 0)) return 'Nothing worth sabotaging there';
   return null;
@@ -152,7 +156,7 @@ export function sabotage(state: GameState, nation: number, province: number): st
   if (why) return why;
   const n = state.nations[nation];
   const p = state.provinces[province];
-  n.money -= SABOTAGE_COST * (1 + n.era * 0.5);
+  n.money -= SABOTAGE_COST * Math.pow(1.6, n.era);
   n.sabotageCooldown = 180;
   const success = rand(state) < 0.45 + n.institutions.diplomacy * 0.03;
   const caught = rand(state) < 0.4 - n.institutions.diplomacy * 0.02;

@@ -1,6 +1,6 @@
 // Alliances (incl. betrayal), pacts, puppets and the treaty desk.
 import { militaryStrength } from '../military/units';
-import { atWar, findPact, log, markDirty, neighborsOf, overlordOf, ownedProvinces, provinceValue, warsOf } from '../query';
+import { atWar, findPact, log, markDirty, neighborsOf, overlordOf, ownedProvinces, provinceValue, removePact, warsOf } from '../query';
 import { rand } from '../rng';
 import type { GameState, Good, Pact } from '../state';
 import { addOpinion, opinion, worldOpinion } from './relations';
@@ -299,14 +299,14 @@ export function puppetsDay(state: GameState): void {
     const over = state.nations[pact.a];
     const sub = state.nations[pact.b];
     if (!over.alive || !sub.alive) {
-      state.pacts.splice(state.pacts.indexOf(pact), 1);
+      removePact(state, pact);
       continue;
     }
     const ratio = militaryStrength(state, pact.b) / Math.max(1, militaryStrength(state, pact.a));
     const op = opinion(state, pact.b, pact.a);
     pact.liberty = Math.max(0, Math.min(100, (pact.liberty ?? 0) + 0.012 + ratio * 0.02 - Math.max(0, op) * 0.0004));
     if ((pact.liberty ?? 0) >= 100 && rand(state) < 0.01) {
-      state.pacts.splice(state.pacts.indexOf(pact), 1);
+      removePact(state, pact);
       markDirty();
       log(state, `${sub.name} rises up for independence from ${over.name}!`, 'war', [pact.a, pact.b]);
       declareWar(state, pact.b, pact.a);
@@ -334,7 +334,7 @@ export function annexPuppet(state: GameState, overlord: number, puppet: number):
   if (why) return why;
   state.nations[overlord].money -= annexCost(state, puppet);
   const pact = findPact(state, 'puppet', overlord, puppet, true)!;
-  state.pacts.splice(state.pacts.indexOf(pact), 1);
+  removePact(state, pact);
   for (const d of state.divisions) if (d.owner === puppet) d.owner = overlord;
   for (const pid of [...ownedProvinces(state, puppet)]) transferProvince(state, pid, overlord);
   markDirty();

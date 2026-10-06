@@ -174,3 +174,8 @@ export function warBetween(state: GameState, a: number, b: number): War | undefi
     (w) => (w.attackers.includes(a) && w.defenders.includes(b)) || (w.attackers.includes(b) && w.defenders.includes(a)),
   );
 }
+
+export function removePact(state: GameState, pact: Pact): void {
+  const i = state.pacts.indexOf(pact);
+  if (i >= 0) state.pacts.splice(i, 1);
+}

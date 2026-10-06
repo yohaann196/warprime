@@ -68,7 +68,7 @@ export const EVENTS: EventDef[] = [
     weight: (_s, n) => 1 + n.institutions.science * 0.3,
     options: [
       { label: 'Fund it fully', desc: '+25% research for 2 years (costs 300)', effect: (s, n) => { n.money -= 300; temp(s, n, 'research', 0.25, 730, 'Breakthrough'); } },
-      { label: 'Publish and move on', desc: 'Instant research progress', effect: (_s, n) => { n.tech.progress += n.research * 60; } },
+      { label: 'Publish and move on', desc: 'Instant research progress', effect: (_s, n) => { n.tech.progress += n.research * 30; } },
     ],
   },
   {

@@ -494,7 +494,7 @@ export function PeaceDialog({ g }: { g: Game }) {
           Negotiating with {s.nations[enemyLeader].name}. Your war score: <b class={myScore >= 0 ? 'pos' : 'neg'}>{myScore}</b>
           {isCapitulated(s, enemyLeader) && <b class="pos"> · They have capitulated</b>}
         </div>
-        <div class="tabs small-tabs">
+        <div class="peace-tabs">
           {(['demand', 'white', 'concede'] as const).map((m) => (
             <button key={m} class={mode === m ? 'on' : ''} onClick={() => { setMode(m); setCede([]); setMoney(0); }}>
               {m === 'demand' ? 'Demand terms' : m === 'white' ? 'White peace' : 'Offer concessions'}

@@ -11,11 +11,12 @@ import { canRecruit, militaryStrength, recruit } from '../military/units';
 import { canBuildNuke, launchNuke, startNuke } from '../military/nukes';
 import { annexPuppet, breakPact, canAnnexPuppet, proposeTreaty, type Clause, evaluateTreaty } from '../diplomacy/pacts';
 import { improveRelations, opinion } from '../diplomacy/relations';
-import { callToArms, declareWar, isCapitulated, leaderOf, scoreFor, termsCost, type PeaceTerms } from '../diplomacy/war';
+import { callToArms, declareWar, isCapitulated, joinWar, leaderOf, scoreFor, termsCost, type PeaceTerms } from '../diplomacy/war';
 import { offerPeace } from '../events';
 import {
   alliesOf,
   atWar,
+  log,
   divisionsAt,
   findPact,
   isFriendly,
@@ -54,6 +55,7 @@ function techWeight(n: Nation, t: TechDef): number {
   if (focus === 'science' && (t.line === 'science' || t.line === 'society')) w = 1.8;
   if (focus === 'trade' && (t.line === 'society' || t.line === 'industry')) w = 1.6;
   if (t.id === 'nuclear_weapons') w *= n.personality.aggression;
+  if (t.id === 'singularity_project') w *= focus === 'science' ? 1 : 0.02;
   return w / Math.sqrt(techCost(t));
 }
 
@@ -348,8 +350,10 @@ function propose(state: GameState, from: number, to: number, clauses: Clause[]):
 
 function aiPeace(state: GameState, n: Nation): void {
   for (const war of warsOf(state, n.id)) {
-    const side = sideOf(war, n.id)!;
-    if (war[side][0] !== n.id) continue; // leaders negotiate
+    // an earlier peace this turn may have ended this war or even annexed us
+    if (!n.alive || !state.wars.includes(war)) continue;
+    const side = sideOf(war, n.id);
+    if (!side || war[side][0] !== n.id) continue; // leaders negotiate
     const other = side === 'attackers' ? 'defenders' : 'attackers';
     const enemyLeader = leaderOf(war, other);
     const myScore = scoreFor(war, n.id);
@@ -363,7 +367,9 @@ function aiPeace(state: GameState, n: Nation): void {
           .flatMap((m) => ownedProvinces(state, m))
           .filter((pid) => war[side].includes(state.provinces[pid].controller))
           .sort((a, b) => provinceValue(state, b) - provinceValue(state, a));
+        const maxTake = Math.max(2, Math.ceil(ownedProvinces(state, enemyLeader).length * 0.35));
         for (const pid of held) {
+          if (terms.cede.length >= maxTake) break;
           const trial = { ...terms, cede: [...terms.cede, pid] };
           if (termsCost(state, war, side, trial) <= myScore) terms.cede = trial.cede;
         }
@@ -391,6 +397,7 @@ function aiPeace(state: GameState, n: Nation): void {
       offerPeace(state, war.id, n.id, side, { cede: [], money: 0, puppet: false, annex: false });
     }
     // desperate measures
+    if (!n.alive || !state.wars.includes(war)) continue;
     if (myScore < -45 && n.nukes > 0 && n.personality.aggression > 0.6 && rand(state) < 0.08 * DIFFICULTY[state.settings.difficulty].aiAggression) {
       const targets = ownedProvinces(state, enemyLeader).sort((a, b) => state.provinces[b].pop - state.provinces[a].pop);
       if (targets.length) launchNuke(state, n.id, targets[0]);
@@ -405,12 +412,26 @@ function aiDiplomacy(state: GameState, n: Nation): void {
 
   if (wars.length) {
     aiPeace(state, n);
+    if (!n.alive) return;
     for (const war of warsOf(state, n.id)) {
       for (const ally of alliesOf(state, n.id)) {
         if (!sideOf(war, ally) && !state.nations[ally].isPlayer && rand(state) < 0.3) callToArms(state, n.id, ally, war);
       }
     }
     return;
+  }
+
+  // coalition: gang up on a runaway superpower while it is busy fighting someone else
+  const land = state.provinces.filter((p) => !p.isSea).length;
+  for (const sp of state.nations) {
+    if (!sp.alive || sp.id === n.id || isFriendly(state, n.id, sp.id) || findPact(state, 'truce', n.id, sp.id)) continue;
+    if (ownedProvinces(state, sp.id).length < land * 0.18 || opinion(state, n.id, sp.id) > -10) continue;
+    const spWar = warsOf(state, sp.id)[0];
+    if (spWar && rand(state) < 0.25 * diff.aiAggression) {
+      joinWar(state, spWar, n.id, spWar.attackers.includes(sp.id) ? 'defenders' : 'attackers');
+      log(state, `${n.name} joins the coalition against ${sp.name}.`, 'war', [n.id, sp.id]);
+      return;
+    }
   }
 
   const my = militaryStrength(state, n.id);
@@ -428,6 +449,7 @@ function aiDiplomacy(state: GameState, n: Nation): void {
       const theirs = militaryStrength(state, t) + alliesOf(state, t).reduce((s, a) => s + militaryStrength(state, a) * 0.7, 0);
       const ratio = (my + allyStrength * 0.4) / Math.max(1, theirs);
       let desire = n.personality.aggression * diff.aiAggression * (ratio - 1.1) * 0.8 - opinion(state, n.id, t) / 150 + 0.05;
+      desire -= Math.max(0, ownedProvinces(state, n.id).length - 25) / 120; // big empires are harder to rally for more war
       if (diff.gangUpOnLeader && state.nations[t].isPlayer && playerIsRunaway(state)) desire += 0.35;
       if (desire > bestDesire) {
         bestDesire = desire;
@@ -460,7 +482,7 @@ function aiDiplomacy(state: GameState, n: Nation): void {
       if (c.isPlayer && evaluateTreaty(state, c.id, n.id, [{ k: 'alliance' }]).value < 0) continue;
       if (propose(state, n.id, c.id, [{ k: 'alliance' }])) break;
     }
-    if (!findPact(state, 'nap', n.id, threat) && rand(state) < 0.4) propose(state, n.id, threat, [{ k: 'nap' }]);
+    if (!findPact(state, 'nap', n.id, threat) && rand(state) < 0.12) propose(state, n.id, threat, [{ k: 'nap' }]);
   }
 
   // --- trade: sell surplus to someone short ---
