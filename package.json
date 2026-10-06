@@ -1,0 +1,32 @@
+{
+  "name": "warprime",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Warprime — a clicker grand-strategy game where the goal is the most prosperous nation.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src tests"
+  },
+  "dependencies": {
+    "d3-delaunay": "^6.0.4",
+    "idb-keyval": "^6.3.0",
+    "preact": "^11.0.0",
+    "simplex-noise": "^4.0.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/d3-delaunay": "^6.0.4",
+    "eslint": "^10.12.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
