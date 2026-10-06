@@ -4,8 +4,19 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # one PR for routine minor/patch bumps instead of one per package
+      npm-minor:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node tracks the Node runtime (.nvmrc = 22), not the latest Node
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
