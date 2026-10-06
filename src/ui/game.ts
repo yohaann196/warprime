@@ -6,8 +6,9 @@ import { choosePlayerNation, type PlayerSetup } from '../sim/setup';
 import { advanceDay, coolWhilePaused, warmUp } from '../sim/tick';
 import { markDirty } from '../sim/query';
 import { invalidateMods } from '../sim/modifiers';
-import type { GameState, Settings } from '../sim/state';
-import { autosave } from '../save';
+import type { GameState, NoticeTone, Settings } from '../sim/state';
+import { autosave, buildHallEntry, recordRun } from '../save';
+import { checkMapMatches } from '../save/migrate';
 
 export type MapMode = 'political' | 'terrain' | 'resources' | 'diplomacy' | 'population';
 export type Tab = 'economy' | 'government' | 'research' | 'military' | 'diplomacy' | 'rankings' | 'log';
@@ -22,11 +23,20 @@ export interface Floater {
   born: number;
 }
 
+export type ToastKind = 'ok' | 'err' | 'info' | 'warn' | 'gold';
+
 export interface Toast {
   id: number;
   text: string;
-  kind: 'ok' | 'err' | 'info';
+  kind: ToastKind;
   born: number;
+}
+
+const NOTICE_TOAST: Record<NoticeTone, ToastKind> = { good: 'ok', bad: 'warn', info: 'info', gold: 'gold' };
+
+function newRunId(seed: number): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  return c?.randomUUID?.() ?? `${Date.now().toString(36)}-${seed.toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
 }
 
 type Listener = () => void;
@@ -56,6 +66,8 @@ export class Game {
   private ownerSig = '';
   private toastId = 1;
   private running = false;
+  private lastNoticeId = 0;
+  private wasOver = false;
 
   subscribe(l: Listener): () => void {
     this.listeners.add(l);
@@ -88,6 +100,8 @@ export class Game {
   start(setup: PlayerSetup): void {
     choosePlayerNation(this.state, setup);
     warmUp(this.state);
+    this.state.runId = newRunId(this.state.settings.seed);
+    this.syncNotices();
     this.screen = 'playing';
     this.speed = 0;
     this.panelOpen = typeof window === 'undefined' || window.innerWidth > 900;
@@ -97,10 +111,14 @@ export class Game {
     this.notify();
   }
 
-  /** Resume from a saved state. */
+  /** Resume from a saved (already migrated) state. Throws SaveError('mapChanged') if its world cannot be rebuilt. */
   load(state: GameState): void {
-    this.map = generateMap(state.settings.seed);
+    const map = generateMap(state.settings.seed);
+    checkMapMatches(state, map);
+    this.map = map;
     this.state = state;
+    state.runId ??= newRunId(state.settings.seed);
+    this.syncNotices();
     markDirty();
     invalidateMods();
     this.screen = 'playing';
@@ -121,9 +139,58 @@ export class Game {
     return r;
   }
 
-  toast(text: string, kind: Toast['kind'] = 'info'): void {
+  toast(text: string, kind: ToastKind = 'info'): void {
+    // the same text twice in a row just refreshes the toast
+    const last = this.toasts[this.toasts.length - 1];
+    if (last && last.text === text) {
+      last.born = performance.now();
+      return;
+    }
     this.toasts.push({ id: this.toastId++, text, kind, born: performance.now() });
     if (this.toasts.length > 5) this.toasts.shift();
+  }
+
+  /** Skips the notices already in the state (a fresh start or a loaded save). */
+  private syncNotices(): void {
+    this.lastNoticeId = this.state.nextNoticeId - 1;
+    this.wasOver = !!this.state.gameOver;
+  }
+
+  /** New sim notices become toasts; the first tick of a finished game pauses and records the run. */
+  private afterTicks(): void {
+    const s = this.state;
+    for (const nt of s.notices) {
+      if (nt.id <= this.lastNoticeId) continue;
+      this.toast(nt.text, NOTICE_TOAST[nt.tone]);
+    }
+    this.lastNoticeId = s.nextNoticeId - 1;
+    if (s.gameOver && (!this.wasOver || (s.gameOver.worldEnd && !s.spectating && this.speed > 0))) {
+      this.speed = 0;
+      this.acc = 0;
+      if (!this.wasOver) {
+        const entry = buildHallEntry(s);
+        if (entry) void recordRun(entry);
+      }
+      void autosave(s);
+    }
+    this.wasOver = !!s.gameOver;
+  }
+
+  /** After elimination: keep watching the world (commands stay closed). */
+  spectate(): void {
+    const s = this.state;
+    if (!s.gameOver || s.gameOver.cause !== 'eliminated' || s.gameOver.worldEnd) return;
+    s.spectating = true;
+    this.setSpeed(this.lastSpeed || 1);
+  }
+
+  /** Re-checks the state after outside changes (the e2e debug handle). */
+  refresh(): void {
+    markDirty();
+    invalidateMods();
+    this.checkMapChange();
+    this.afterTicks();
+    this.notify();
   }
 
   floater(x: number, y: number, text: string, color = '#ffe28a'): void {
@@ -143,7 +210,8 @@ export class Game {
 
   get blocked(): boolean {
     const s = this.state;
-    return !!s.gameOver || s.pendingEvents.some((e) => e.nation === s.player);
+    if (s.gameOver) return !s.spectating;
+    return s.pendingEvents.some((e) => e.nation === s.player);
   }
 
   private checkMapChange(): void {
@@ -203,6 +271,7 @@ export class Game {
       if (this.selectedDivs.size) {
         for (const id of [...this.selectedDivs]) if (!s.divisions.some((d) => d.id === id)) this.selectedDivs.delete(id);
       }
+      this.afterTicks();
       if (s.day % 365 === 0) void autosave(s);
     }
     this.floaters = this.floaters.filter((f) => now - f.born < 1400);

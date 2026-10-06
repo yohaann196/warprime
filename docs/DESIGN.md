@@ -1,9 +1,9 @@
 # Warprime — Design Document
 
 Warprime is a single-player **clicker grand-strategy** game. You lead a nation in a procedurally
-generated world from 1900 to 2050. The goal is not just conquest: every nation is ranked on a
-**Prosperity Index**, and you can win by being the richest, happiest, most advanced or most
-influential nation as well as by force.
+generated world from 1900 to 3000. There are no victories: every nation is ranked each month on a
+**Prosperity Index**, and the goal is to survive and stay on top of the world for as long as you
+can, by being the richest, happiest, most advanced or most influential nation as well as by force.
 
 ## 1. Inspiration: *Age of Clicks*
 
@@ -46,7 +46,8 @@ GamesCensor beginner guide, Trees Hate You review summary (gathered via search, 
 
 ## 2. Design pillars
 
-1. **Prosperity, not just conquest** — a visible Prosperity Index ranks every nation monthly.
+1. **Prosperity, not just conquest** — a visible Prosperity Index ranks every nation monthly; a
+   current and an all-time leaderboard replace victory conditions.
 2. **Clicks matter early, strategy matters late** — clicking bootstraps your economy and tips
    battles; automation (Bureaucracy, Administration Offices, Automation/Robotics techs) takes over.
 3. **Readable** — tooltips explain every value; the treaty desk shows the AI's verdict and reasons
@@ -63,8 +64,9 @@ moisture and latitude → terrain (plains, forest, hills, mountains, desert, tun
 sizes. Resources (iron, coal, oil, uranium, rare metals) depend on terrain.
 
 ### Time
-One tick is one day. Speeds: pause, 2, 5, 12 and 30 days per second. The campaign runs
-1900 → 2050 across five eras: Industrial, Mechanized, Atomic, Information and Future.
+One tick is one day. Speeds: pause, 2, 5, 12 and 30 days per second. The game runs from
+1 Jan 1900 to 1 Jan 3000 (`settings.endYear`), through the Industrial, Mechanized, Atomic,
+Information and Future eras.
 
 ### Clicking
 - **Work click** on your province: money plus a burst of what the province produces.
@@ -105,8 +107,9 @@ stronger and grant a doctrine (15 combinations, e.g. Industry + Trade = *Merchan
 40 technologies in four lines (Industry, Military, Society, Science) over five eras. A new era
 opens once four techs of the current era are known and the calendar allows it. Unlocks include
 oil, vehicles, armour, aviation, uranium, nuclear weapons, electronics, drones, a missile shield
-and the *Singularity Project* — a scientific-victory megaproject available from 2032 that
-passive research cannot finish in under fifteen years (research clicks can shorten it).
+and the *Singularity Project* — a megaproject available from 2032 that passive research cannot
+finish in under fifteen years (research clicks can shorten it). It gives large research and
+industry bonuses; it no longer wins the game.
 
 ### Military
 Infantry, artillery, armour, air wings and drone swarms; recruitment in the capital or Barracks;
@@ -125,7 +128,8 @@ provinces, alliance, non-aggression pact, military access, trade contracts, loan
 status, or full annexation of a capitulated enemy. Peace creates a 5-year truce. Taking land
 causes **aggressive expansion**: every other nation's opinion of the conqueror drops, more so the
 larger the conqueror already is. Nations that fear a superpower (18%+ of the world's land) join
-its wars against it as a **coalition** — whether that superpower is an AI or you.
+its wars against it as a **grand alliance** — whether that superpower is an AI or you. On
+Realistic and Demonic a runaway world #1 that has reigned for 30 (10) years draws one too.
 
 **Betrayal**: leaving an ally at war or attacking an ally costs 30 trustworthiness, a deep grudge
 with the victim and a world-wide opinion penalty. Breaking a non-aggression pact or truce is also
@@ -137,12 +141,14 @@ Atomic-era technology, an expensive warhead programme (money, uranium, 240 days)
 against nations you are at war with. A strike kills over half of a province's population, halves
 its buildings and leaves 10 years of fallout. The price: −60 opinion from every nation, −50
 trustworthiness, domestic instability, possible second strikes from nuclear powers and a
-coalition joining the war against you. A missile shield intercepts 60% of strikes.
+grand alliance joining the war against you. A missile shield intercepts 60% of strikes.
 
 ### Difficulty
 | | Beginner | Realistic | Demonic |
 | --- | --- | --- | --- |
-| AI aggression | ×0.45 | ×1 | ×1.6, gangs up on a runaway player |
+| AI aggression | ×0.45 | ×1 | ×1.6 |
+| Envy of a runaway world #1 (war desire) | none | +0.08 | +0.35, and +0.10 against a top-3 player |
+| A long-reigning #1 draws a grand alliance | never | after 30 years | after 10 years |
 | AI economy | −25% | ±0 | +35% |
 | Player click power | +50% | ±0 | −20% |
 | Tutorial tips | yes | yes | none |
@@ -150,15 +156,27 @@ coalition joining the war against you. A missile shield intercepts 60% of strike
 | Fog of war | no | no | yes |
 | AI nuclear retaliation | 30% | 70% | 100% |
 
-### Prosperity Index and victory
-Monthly score from: wealth per person (28%), economic size (14%), wellbeing (16%),
-population (8%), technology (12%), trade (8%), security (8%) and reputation (6%), minus war
-exhaustion and fallout.
+### Prosperity Index, leaderboards and the end of the game
+Monthly score from: wealth per person (26%), economic size (14%), wellbeing (15%), population
+(8%), technology relative to the most advanced nation (10%), trade (8%), security (8%), reputation
+(5%) and climate responsibility (6%: fossil emissions per unit of GDP against the world average,
+plus green investment; neutral until the climate system exists), minus war exhaustion and fallout.
+Ties rank by nation id.
 
-Victories: **Domination** (55% of land), **Economic Hegemon** (40% of world GDP for 3 years),
-**Golden Age** (#1 by 5+ points with happiness and stability ≥ 85 for 15 years), **Scientific** (Singularity
-Project), **Diplomatic** (lead a bloc of 3+ nations with 65% of world population) — the last three from 1950 —
-or **Most Prosperous** when 2050 arrives. AI nations can win too.
+There are **no victories**. Two leaderboards (`src/sim/leaderboard.ts`):
+- **Current**: the monthly ranking. The #1 holds the **crown** 👑; a challenger takes it with a lead
+  of 1 point or by topping two samples in a row (the crown only drives reigns and headlines).
+- **All-time**: every interval between samples is credited to the previous sample's raw ranking:
+  days at #1, days in the top 3, and F1-style rank points (25, 18, 15 … 1 per year). Ordered by days
+  at #1, then top-3 days, points, lifespan and id. Dead nations keep their place; a revived nation
+  gets a new life. Invariant: the days at #1 of all nations sum to the sampled time.
+- Reigns, decade and century leaders, and player milestones (crown gained or lost, overtaken,
+  climbed, years at the top, all-time rank) delivered as notices.
+
+The game ends, checked at the end of every day, when Earth becomes uninhabitable (climate damage
+100, everyone loses), when the player's nation is destroyed (the player may then spectate), or on
+1 Jan 3000. The end screen shows the cause, the player's final record and legacy score, both
+boards and who led when; finished runs are kept in a local **Hall of Fame** sorted by legacy.
 
 ### Events
 Random national events with choices (booms, recessions, strikes, breakthroughs, discoveries,
@@ -179,11 +197,45 @@ src/
     tick.ts     advances one day
   data/       tables: buildings, units, techs, institutions, economic systems
   render/     canvas map renderer
-  ui/         Preact UI (HUD, panels, modals, setup)
-  save/       IndexedDB saves, export/import
+  ui/         Preact UI (HUD, panels, modals, setup, leaderboards, end screen)
+  save/       IndexedDB saves and Hall of Fame, export/import, migrate.ts (save versions)
 tests/        Vitest suites
-scripts/      Playwright e2e smoke test
+scripts/      Playwright e2e smoke test, balance and perf runs
 ```
 
 Rules: the UI and the AI only change the world through `applyCommand`; the simulation is
 deterministic for a seed, so a save replays identically.
+
+## 5. Contracts
+
+Rules every subsystem follows so they can be built separately:
+
+- **Save format.** `SAVE_VERSION` lives in `src/sim/version.ts` (re-exported by worldgen). The only
+  path from stored JSON to a game is `migrateState` in `src/save/migrate.ts`: a shape check,
+  `SaveError` codes `corrupt` / `newer` / `unknownMap` / `mapChanged`, one migration step per version
+  (v1→v2: `mapId 'random'`, `endYear 3000`, victory fields dropped, `gameOver = null`, invalid research
+  cleared), then the default fillers.
+- **Default fillers.** Each subsystem exports one idempotent `ensureXDefaults(state, nationId?)` and
+  registers it in `src/sim/defaults.ts`. `newGame`, migration and the revival of a dead nation run
+  the same registry. The leaderboard filler rebuilds the boards of an old save from the prosperity
+  histories, crediting the time before the first surviving sample to that sample's leader.
+- **Storage.** Saves and the Hall of Fame (key `hof`) live in Warprime's own IndexedDB store
+  (`createStore('warprime', 'saves')`), because github.io origins are shared by every project page.
+  Saves from the default store are moved once (copy first, then delete; flag
+  `warprime:idb-migrated` in localStorage).
+- **Headlines.** `notice(state, text, tone, nations, key?, cooldownDays?)` in `src/sim/query.ts` is
+  the single channel from the simulation to player-facing toasts. Cooldowns live in the state, so
+  notices are deterministic.
+- **Tick order** (documented in `src/sim/tick.ts`): guard → beginDay → economy → trade and prices →
+  climate → military (movement, naval, combat, siege, readiness) → wars, opinion, puppets, events →
+  AI → checkAlive → day++ → monthly (eras, prosperity, leaderboard sample, AI tiers, climate) →
+  history → yearly → `checkEnd`.
+- **The end.** `checkEnd` (end of the day) is the only code that sets `state.gameOver`. Causes:
+  `climate_collapse`, `eliminated`, `year_limit`, in that priority.
+- **History.** `Nation.history` holds a point every `state.historyStep` days; when a history passes
+  240 points the step doubles and every nation keeps the points on the new grid. Charts plot by
+  `entry.day`.
+- **Testing hook.** With `?e2e=1` in the URL, production builds expose `window.__warprime`
+  (`game`, `endGame(cause)`, `jumpToDay(day)`) for the end-to-end tests.
+- **Determinism.** The simulation never reads a clock or `Math.random`; randomness comes from the
+  seeded state RNG. The UI sets `state.runId` for the Hall of Fame; the sim never reads it.

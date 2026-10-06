@@ -1,5 +1,5 @@
 // Read-only helpers over the game state. A per-state index is cached and rebuilt when marked dirty.
-import type { Division, GameState, Pact, PactType, War } from './state';
+import type { Division, GameState, NoticeTone, Pact, PactType, War } from './state';
 
 interface Index {
   owned: number[][]; // land provinces per owner
@@ -167,6 +167,24 @@ export function playerNation(state: GameState) {
 export function log(state: GameState, text: string, kind: GameState['log'][number]['kind'], nations: number[]): void {
   state.log.push({ day: state.day, text, kind, nations });
   if (state.log.length > 400) state.log.splice(0, state.log.length - 400);
+}
+
+export const MAX_NOTICES = 40;
+
+/**
+ * The single channel for player-facing headlines: logs the text and queues a notice the UI shows as a
+ * toast. With a key, the notice is skipped while that key is cooling down and then cools for
+ * `cooldownDays`. Returns whether it was emitted. Deterministic: cooldowns live in the state.
+ */
+export function notice(state: GameState, text: string, tone: NoticeTone, nations: number[], key?: string, cooldownDays = 0): boolean {
+  if (key !== undefined) {
+    if ((state.noticeCooldowns[key] ?? -Infinity) > state.day) return false;
+    if (cooldownDays > 0) state.noticeCooldowns[key] = state.day + cooldownDays;
+  }
+  state.notices.push({ id: state.nextNoticeId++, day: state.day, text, tone, nations });
+  if (state.notices.length > MAX_NOTICES) state.notices.splice(0, state.notices.length - MAX_NOTICES);
+  log(state, text, tone === 'gold' ? 'good' : tone, nations);
+  return true;
 }
 
 export function warBetween(state: GameState, a: number, b: number): War | undefined {

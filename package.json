@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Warprime \u2014 a clicker grand-strategy game where the goal is the most prosperous nation.",
+  "description": "Warprime \u2014 a clicker grand-strategy game: survive from 1900 to 3000 and top the leaderboards.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -44,18 +44,12 @@ async function run(viewport, tag) {
       await page.waitForTimeout(120);
     }
   };
-  await page.goto(url);
+  await page.goto(withE2e(url));
   await page.waitForTimeout(600);
   await shot('1-menu');
   await page.click('text=New game');
   await page.waitForTimeout(1000);
-  const canvas = await page.$('.preview-canvas');
-  const box = await canvas.boundingBox();
-  for (const [fx, fy] of [[0.5, 0.5], [0.4, 0.45], [0.6, 0.55], [0.3, 0.5], [0.7, 0.4], [0.45, 0.6]]) {
-    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
-    await page.waitForTimeout(120);
-    if (await page.$eval('button.start', (b) => !b.disabled)) break;
-  }
+  await pickNation(page);
   await shot('2-setup');
   await page.click('button.start');
   await page.waitForTimeout(900);
@@ -92,12 +86,20 @@ async function run(viewport, tag) {
   await page.waitForTimeout(4000);
   await page.keyboard.press('Digit0');
   await dismissEvents();
-  for (const tab of ['Economy', 'Government', 'Military', 'Diplomacy', 'Rankings', 'Log']) {
+  for (const tab of ['Economy', 'Government', 'Military', 'Diplomacy', 'Leaderboard', 'Log']) {
     await dismissEvents();
     await page.click(`.tabs button:has-text("${tab}")`);
     await page.waitForTimeout(250);
     await shot(`5-${tab.toLowerCase()}`);
   }
+  // leaderboard sub-tabs
+  await page.click('.tabs button:has-text("Leaderboard")');
+  for (const sub of ['All-time', 'History', 'Now']) {
+    await page.click(`.lb-tabs button:has-text("${sub}")`);
+    await page.waitForTimeout(200);
+    await shot(`5-leaderboard-${sub.toLowerCase()}`);
+  }
+  if ((await page.$$('.lb-list .lb-row')).length === 0) throw new Error('leaderboard shows no rows');
   for (const mode of ['Relations', 'Resources', 'Population', 'Terrain']) {
     await dismissEvents();
     const b = await page.$(`.map-modes button:has-text("${mode}")`);
@@ -108,7 +110,79 @@ async function run(viewport, tag) {
     }
   }
   if (tag === 'desktop') await diplomacyFlow(page, shot, dismissEvents);
+  await endings(page, shot, tag);
   await page.close();
+}
+
+function withE2e(u) {
+  return u + (u.includes('?') ? '&' : '?') + 'e2e=1';
+}
+
+async function pickNation(page) {
+  const canvas = await page.$('.preview-canvas');
+  const box = await canvas.boundingBox();
+  for (const [fx, fy] of [[0.5, 0.5], [0.4, 0.45], [0.6, 0.55], [0.3, 0.5], [0.7, 0.4], [0.45, 0.6]]) {
+    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+    await page.waitForTimeout(120);
+    if (await page.$eval('button.start', (b) => !b.disabled)) return;
+  }
+  throw new Error('could not pick a nation');
+}
+
+/** Ends the game through the ?e2e=1 handle and checks the end screen. */
+async function endWith(page, cause, expect) {
+  await page.evaluate((c) => globalThis.__warprime.endGame(c), cause);
+  await page.waitForSelector('[data-testid="endscreen"]', { timeout: 5000 });
+  const head = await page.textContent('.end-head h1');
+  if (!expect.test(head)) throw new Error(`${cause}: unexpected end screen title "${head}"`);
+  if ((await page.$$('.end-boards .lb-row')).length === 0) throw new Error(`${cause}: end screen shows no leaderboard rows`);
+  if (!(await page.$('.endscreen .timeline'))) throw new Error(`${cause}: end screen has no timeline`);
+}
+
+async function newGameFromEndScreen(page) {
+  await page.click('.end-buttons button:has-text("New game")');
+  await page.waitForSelector('.preview-canvas');
+  await page.waitForTimeout(600);
+  await pickNation(page);
+  await page.click('button.start');
+  await page.waitForTimeout(600);
+  // let a couple of months pass so there is history to show
+  await page.keyboard.press('Digit4');
+  for (let i = 0; i < 8; i++) {
+    await page.waitForTimeout(300);
+    for (const opt of await page.$$('.event-options button')) {
+      await opt.click().catch(() => {});
+      break;
+    }
+  }
+  await page.keyboard.press('Digit0');
+}
+
+async function endings(page, shot, tag) {
+  await page.keyboard.press('Escape');
+  // 1. the year limit, then the Hall of Fame entry it recorded
+  await endWith(page, 'year_limit', /year 3000|ends history on top/);
+  await shot('10-end-year-limit');
+  if (tag !== 'desktop') return;
+  await page.waitForTimeout(500);
+  await page.click('.end-buttons button:has-text("Hall of Fame")');
+  await page.waitForSelector('[data-testid="hall-of-fame"] tbody tr.me', { timeout: 5000 });
+  await shot('11-hall-of-fame');
+  await page.click('[data-testid="hall-of-fame"] button:has-text("Close")');
+  // 2. elimination, spectating, and the world ending while you watch
+  await newGameFromEndScreen(page);
+  await endWith(page, 'eliminated', /has fallen/);
+  await shot('12-end-eliminated');
+  await page.click('.end-buttons button:has-text("Spectate")');
+  await page.waitForTimeout(800);
+  if (await page.$('[data-testid="endscreen"]')) throw new Error('spectate did not close the end screen');
+  if (!(await page.$('.topbar.spectator'))) throw new Error('no spectator bar');
+  await shot('13-spectating');
+  await endWith(page, 'climate_collapse', /uninhabitable/);
+  // 3. climate collapse from a running game
+  await newGameFromEndScreen(page);
+  await endWith(page, 'climate_collapse', /uninhabitable/);
+  await shot('14-end-climate');
 }
 
 async function diplomacyFlow(page, shot, dismissEvents) {

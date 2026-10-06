@@ -11,13 +11,14 @@ import { econSwitchCost } from '../sim/institutions';
 import { allMods, breakdown } from '../sim/modifiers';
 import { canBuildNuke, nukeMoneyCost } from '../sim/military/nukes';
 import { militaryStrength } from '../sim/military/units';
-import { PROSPERITY_WEIGHTS, ranking, VICTORY_INFO } from '../sim/prosperity';
+import { PROSPERITY_WEIGHTS } from '../sim/prosperity';
 import { ownedProvinces } from '../sim/query';
 import { canResearch } from '../sim/tech';
-import { dateString, GOODS, INSTITUTIONS, type EconSystemId, type GameState, type Good, type VictoryType } from '../sim/state';
+import { dateString, GOODS, INSTITUTIONS, yearOf, type EconSystemId, type Good } from '../sim/state';
 import { DEV_DAYS } from '../sim/institutions';
-import { Bar, Flag, fmt, Section, signed } from './components';
+import { Bar, fmt, Section, signed } from './components';
 import type { Game } from './game';
+import { AllTimeStandings, CurrentStandings, DecadeGrid, LeaderBanner, LeaderTimeline, liveAllTime, liveStandings, ProsperityChart } from './Leaderboard';
 import { mainRenderer } from './MapView';
 
 // ------------------------------------------------------------------ Economy
@@ -337,99 +338,107 @@ export function MilitaryPanel({ g }: { g: Game }) {
           </button>
         )}
         <div class="muted small">
-          Stockpile: <b>{n.nukes}</b>. To strike, select an enemy province while at war. Using a nuke devastates the target but crashes your reputation with <i>every</i> nation, may trigger retaliation and a coalition against you. Most wars are won on land.
+          Stockpile: <b>{n.nukes}</b>. To strike, select an enemy province while at war. Using a nuke devastates the target but crashes your reputation with <i>every</i> nation, may trigger retaliation and a grand alliance against you. Most wars are won on land.
         </div>
       </Section>
     </div>
   );
 }
 
-// ------------------------------------------------------------------ Rankings
+// ------------------------------------------------------------------ Leaderboard
 
-function HistoryChart({ s }: { s: GameState }) {
-  const top = ranking(s).slice(0, 5).map((r) => r.nation);
-  if (s.player >= 0 && !top.includes(s.player)) top.push(s.player);
-  const series = top.map((id) => s.nations[id]).filter((n) => n.history.length > 1);
-  if (!series.length) return <div class="muted small">History builds up over the first months.</div>;
-  const W = 300;
-  const H = 120;
-  const maxDay = Math.max(...series.map((n) => n.history[n.history.length - 1].day), 1);
-  const minDay = Math.min(...series.map((n) => n.history[0].day));
-  const maxP = Math.max(...series.flatMap((n) => n.history.map((h) => h.prosperity)), 1);
-  const x = (d: number) => ((d - minDay) / Math.max(1, maxDay - minDay)) * W;
-  const y = (p: number) => H - (p / maxP) * (H - 8) - 4;
-  return (
-    <svg class="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Prosperity over time">
-      {[0.25, 0.5, 0.75].map((f) => (
-        <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} class="grid" />
-      ))}
-      {series.map((n) => (
-        <polyline
-          key={n.id}
-          points={n.history.map((h) => `${x(h.day).toFixed(1)},${y(h.prosperity).toFixed(1)}`).join(' ')}
-          fill="none"
-          stroke={n.color}
-          stroke-width={n.isPlayer ? 2.5 : 1.4}
-          opacity={n.isPlayer ? 1 : 0.85}
-        >
-          <title>{n.name}</title>
-        </polyline>
-      ))}
-    </svg>
-  );
-}
+type LbTab = 'now' | 'alltime' | 'history';
 
-export function RankingsPanel({ g }: { g: Game }) {
+export function LeaderboardPanel({ g }: { g: Game }) {
   const s = g.state;
-  const r = ranking(s);
+  const lb = s.leaderboard;
   const n = g.player;
+  const [tab, setTab] = useState<LbTab>('now');
+  const year = yearOf(s);
+  const left = Math.max(0, s.settings.endYear - year);
+  const pick = (id: number) => {
+    g.diploTarget = id;
+    g.tab = 'diplomacy';
+    g.notify();
+  };
   return (
     <div>
-      <Section title="Prosperity Index">
-        <div class="muted small">Every nation is scored monthly. Be the most prosperous by {s.settings.endYear} — or win early.</div>
-        <HistoryChart s={s} />
-        <ol class="ranking">
-          {r.map((x, i) => {
-            const o = s.nations[x.nation];
-            const parts = Object.entries(o.prosperityParts)
-              .map(([k, v]) => (k === 'penalty' ? `Penalties: ${v.toFixed(1)}` : `${PROSPERITY_WEIGHTS[k]?.label}: ${Math.round(v)} × ${PROSPERITY_WEIGHTS[k]?.weight}`))
-              .join('\n');
-            return (
-              <li key={x.nation} class={o.isPlayer ? 'me' : ''} data-tip={`— ${o.name}\n${parts}`} onClick={() => { g.diploTarget = o.id; g.tab = 'diplomacy'; g.notify(); }}>
-                <span class="rank">{i + 1}</span>
-                <Flag nation={o} size={14} />
-                <span class="rname">{o.name}</span>
-                <Bar value={x.prosperity} max={100} color={o.color} label={x.prosperity.toFixed(1)} />
-              </li>
-            );
-          })}
-        </ol>
-      </Section>
-      <Section title="Your score">
-        {Object.entries(n.prosperityParts).map(([k, v]) =>
-          k === 'penalty' ? (
-            <div key={k} class="mod">
-              <span>Penalties (war exhaustion, fallout)</span>
-              <b class="neg">{v.toFixed(1)}</b>
-            </div>
-          ) : (
-            <div key={k} class="mod" data-tip={PROSPERITY_WEIGHTS[k].desc}>
-              <span>
-                {PROSPERITY_WEIGHTS[k].label} <small class="muted">×{PROSPERITY_WEIGHTS[k].weight}</small>
-              </span>
-              <Bar value={v} max={100} label={String(Math.round(v))} />
-            </div>
-          ),
-        )}
-      </Section>
-      <Section title="Paths to victory">
-        {(Object.keys(VICTORY_INFO) as VictoryType[]).map((k) => (
-          <div key={k} class="victory">
-            <b>{VICTORY_INFO[k].name}</b>
-            <span class="muted small">{VICTORY_INFO[k].desc}</span>
-          </div>
+      <div class="lb-tabs" role="tablist">
+        {(
+          [
+            ['now', 'Now'],
+            ['alltime', 'All-time'],
+            ['history', 'History'],
+          ] as [LbTab, string][]
+        ).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} class={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+            {label}
+          </button>
         ))}
-      </Section>
+      </div>
+      {tab === 'now' && (
+        <>
+          <Section title="Current leaderboard" right={<small class="muted">monthly · Prosperity Index</small>}>
+            <LeaderBanner s={s} />
+            <CurrentStandings s={s} rows={liveStandings(s)} live onPick={pick} />
+          </Section>
+          {n.alive && (
+            <Section title="Your score" right={<b>{n.prosperity.toFixed(1)}</b>}>
+              {Object.entries(n.prosperityParts).map(([k, v]) =>
+                k === 'penalty' ? (
+                  <div key={k} class="mod">
+                    <span>Penalties (war exhaustion, fallout)</span>
+                    <b class="neg">{v.toFixed(1)}</b>
+                  </div>
+                ) : (
+                  <div key={k} class="mod" data-tip={PROSPERITY_WEIGHTS[k]?.desc}>
+                    <span>
+                      {PROSPERITY_WEIGHTS[k]?.label ?? k} <small class="muted">×{PROSPERITY_WEIGHTS[k]?.weight}</small>
+                    </span>
+                    <Bar value={v} max={100} label={String(Math.round(v))} />
+                  </div>
+                ),
+              )}
+            </Section>
+          )}
+          <Section title="How it works">
+            <ul class="help">
+              <li>There are no victories. Survive, and stay on top of the world for as long as you can.</li>
+              <li>
+                <b>Current</b>: every month all nations are ranked on the Prosperity Index. The #1 holds the crown 👑; a challenger takes it with a
+                clear lead or two months in a row at the top.
+              </li>
+              <li>
+                <b>All-time</b>: total time spent at #1, then time in the top 3, then rank points. Fallen nations keep their place.
+              </li>
+              <li>
+                The game ends on 1 Jan {s.settings.endYear}, when Earth becomes uninhabitable, or when your nation is destroyed.{' '}
+                <b>
+                  {left} year{left === 1 ? '' : 's'} remaining.
+                </b>
+              </li>
+            </ul>
+          </Section>
+        </>
+      )}
+      {tab === 'alltime' && (
+        <Section title="All-time leaderboard" right={<small class="muted">years at #1</small>}>
+          <AllTimeStandings s={s} rows={liveAllTime(s)} />
+        </Section>
+      )}
+      {tab === 'history' && (
+        <>
+          <Section title="Who led when">
+            <LeaderTimeline s={s} endDay={s.day} />
+          </Section>
+          <Section title="Decades">
+            <DecadeGrid s={s} />
+          </Section>
+          <Section title="Prosperity">
+            <ProsperityChart s={s} nations={lb.order.slice(0, 5)} />
+          </Section>
+        </>
+      )}
     </div>
   );
 }

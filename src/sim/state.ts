@@ -142,9 +142,7 @@ export interface Nation {
   prosperityParts: Record<string, number>;
   militaryStrength: number;
   tradeVolume: number;
-  history: { day: number; prosperity: number; gdp: number }[];
-  yearsGolden: number;
-  daysHegemon: number;
+  history: HistoryPoint[]; // sampled every state.historyStep days; spacing doubles as the game goes on
   sabotageCooldown: number;
   tempMods: TempMod[];
   ledger: Record<string, number>; // money flows of the last day by category (+income / -expense)
@@ -153,6 +151,17 @@ export interface Nation {
   foodShortage: boolean;
   consumerSat: number; // 0..1 share of consumer-goods demand met
   connected: number[]; // provinces linked to the capital by land (logistics)
+  // Owned by the climate subsystem (absent until it runs): fossil emissions and abatement per day,
+  // and money spent on green programmes per day. Prosperity reads them defensively.
+  emissions?: number;
+  abated?: number;
+  greenSpend?: number;
+}
+
+export interface HistoryPoint {
+  day: number;
+  prosperity: number;
+  gdp: number;
 }
 
 export interface TempMod {
@@ -236,17 +245,133 @@ export interface Settings {
   seed: number;
   difficulty: Difficulty;
   nationCount: number;
+  mapId: string; // 'random' = the seeded procedural world
   startYear: number;
-  endYear: number;
+  endYear: number; // the game ends on 1 Jan of this year
 }
 
-export type VictoryType = 'domination' | 'hegemon' | 'golden_age' | 'scientific' | 'diplomatic' | 'prosperity';
+// ------------------------------------------------------------------ leaderboards and the end of the game
+
+/** Why the game ended. Only checkEnd (src/sim/leaderboard.ts) sets state.gameOver. */
+export type EndCause = 'year_limit' | 'climate_collapse' | 'eliminated';
+
+/** Lifetime record of one nation (index = nation id; dead nations keep theirs). */
+export interface NationRecord {
+  daysAtTop: number; // days ranked #1 in the monthly ranking
+  daysTop3: number; // days ranked 1..3
+  rankPoints: number; // integral of RANK_POINTS[rank] per year
+  bestRank: number; // 1-based; 0 = never ranked
+  bestAllTimeRank: number; // 1-based; 0 = never ranked
+  peakProsperity: number;
+  peakProsperityDay: number;
+  reigns: number; // times the crown was taken
+  longestReign: number; // days
+  firstTopDay: number; // first day holding the crown, -1 = never
+  startProvinces: number;
+  peakProvinces: number;
+  peakGdp: number;
+  diedDay: number; // -1 = alive
+  eliminatedBy: number; // nation that took the last province, -1 = none
+  deaths: number;
+  lives: number; // 1 + times the nation was revived
+}
+
+/** A period holding the crown. end = -1 while it lasts. */
+export interface Reign {
+  nation: number;
+  start: number;
+  end: number;
+}
+
+/** Who led a calendar decade: [nation, days at #1] sorted by days. */
+export interface DecadeLead {
+  start: number; // calendar year, e.g. 1920
+  holders: [number, number][];
+  partial?: boolean; // the game did not cover the whole decade
+}
+
+export interface LeaderboardState {
+  lastSampleDay: number;
+  order: number[]; // alive nations, monthly ranking at the last sample
+  allTimeOrder: number[]; // every nation (dead ones too), all-time ranking at the last sample
+  yearStartOrder: number[]; // ranking at the first sample of the calendar year (rank-change arrows)
+  crown: number; // official #1 (with hysteresis), -1 = none
+  challenger: number; // raw #1 that has not taken the crown yet, -1 = none
+  records: NationRecord[];
+  reigns: Reign[];
+  decade: { start: number; days: number[] }; // running decade: days at #1 per nation
+  decades: DecadeLead[]; // finished decades
+  nextYearsMilestone: number; // index into YEARS_AT_TOP_MILESTONES for the player
+}
+
+export type NoticeTone = 'good' | 'bad' | 'info' | 'gold';
+
+/** A headline for the player. The UI turns new ones into toasts. */
+export interface Notice {
+  id: number;
+  day: number;
+  text: string;
+  tone: NoticeTone;
+  nations: number[];
+}
+
+export interface StandingRow {
+  nation: number;
+  rank: number;
+  prosperity: number;
+}
+
+export interface AllTimeRow {
+  nation: number;
+  rank: number;
+  daysAtTop: number;
+  daysTop3: number;
+  rankPoints: number;
+  diedDay: number;
+}
+
+/** The player's final numbers, frozen when the game ends. */
+export interface PlayerFinal {
+  nation: number;
+  survived: boolean;
+  diedDay: number;
+  eliminatedBy: number;
+  currentRank: number; // 0 if dead
+  aliveCount: number;
+  allTimeRank: number;
+  nationCount: number;
+  prosperity: number;
+  peakProsperity: number;
+  peakProsperityDay: number;
+  daysAtTop: number;
+  daysTop3: number;
+  rankPoints: number;
+  bestRank: number;
+  longestReign: number;
+  reigns: number;
+  firstTopDay: number;
+  provinces: number;
+  startProvinces: number;
+  peakProvinces: number;
+  gdp: number;
+  peakGdp: number;
+  population: number;
+  techs: number;
+  clicks: number;
+  yearsAlive: number;
+  legacy: number; // Hall of Fame score
+}
 
 export interface GameOver {
-  winner: number;
-  type: VictoryType | 'defeat';
+  cause: EndCause;
   day: number;
-  ranking: { nation: number; prosperity: number }[];
+  year: number;
+  crown: number;
+  climateDamage: number | null;
+  current: StandingRow[];
+  allTime: AllTimeRow[];
+  player: PlayerFinal | null;
+  worldEnd?: { cause: Exclude<EndCause, 'eliminated'>; day: number }; // reached while spectating
 }
 
 export interface GameState {
@@ -269,6 +394,14 @@ export interface GameState {
   player: number;
   gameOver: GameOver | null;
   tutorialStep: number;
+  leaderboard: LeaderboardState;
+  notices: Notice[]; // the last 40 headlines
+  nextNoticeId: number;
+  noticeCooldowns: Record<string, number>; // notice key -> first day it may fire again
+  historyStep: number; // days between Nation.history points (doubles to keep histories short)
+  climate?: { damage: number }; // Earth damage 0..100, filled by the climate subsystem
+  spectating?: boolean; // the eliminated player keeps watching; the sim runs on, commands stay closed
+  runId?: string; // set by the UI to identify the run in the Hall of Fame; the sim never reads it
 }
 
 export function emptyStock(): Stock {

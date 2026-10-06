@@ -75,7 +75,7 @@ export const TECHS: TechDef[] = [
   { id: 'universal_income', name: 'Universal Income', line: 'society', era: 4, desc: 'Prosperity shared.', mods: { happiness: 10 } },
   { id: 'smart_cities', name: 'Smart Cities', line: 'society', era: 4, desc: 'Efficient urban life.', mods: { services: 0.2, popGrowth: 0.05 } },
   { id: 'ai_research', name: 'Artificial Intelligence', line: 'science', era: 4, desc: 'Machines that think.', mods: { research: 0.3 } },
-  { id: 'singularity_project', name: 'Singularity Project', line: 'science', era: 4, desc: 'SCIENTIFIC VICTORY: a decades-long megaproject. Complete it to win.', requires: ['ai_research', 'fusion_power'], costMult: 30, minYear: 2032, minDays: 5475 },
+  { id: 'singularity_project', name: 'Singularity Project', line: 'science', era: 4, desc: 'A decades-long megaproject: machines that improve themselves. Research and industry soar.', mods: { research: 0.4, factory: 0.2 }, requires: ['ai_research', 'fusion_power'], costMult: 30, minYear: 2032, minDays: 5475 },
 ];
 
 export const TECH_BY_ID: Record<string, TechDef> = Object.fromEntries(TECHS.map((t) => [t.id, t]));

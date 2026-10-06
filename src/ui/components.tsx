@@ -13,7 +13,7 @@ export function pct(v: number): string {
   return `${Math.round(v * 100)}%`;
 }
 
-export function Flag({ nation, size = 22 }: { nation: Nation; size?: number }) {
+export function Flag({ nation, size = 22 }: { nation: Pick<Nation, 'flag' | 'name'>; size?: number }) {
   const [a, b, c] = nation.flag.colors;
   const w = size * 1.5;
   const h = size;

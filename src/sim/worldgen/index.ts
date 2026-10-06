@@ -13,8 +13,12 @@ import { generateMap, type GeneratedMap } from './geometry';
 import { cityName, nationName, seaName } from './names';
 import { BASE_PRICES } from '../../data/buildings';
 import { FOOD_PER_POP, FOOD_TERRAIN } from '../economy/production';
+import { ensureDefaults } from '../defaults';
+import { emptyLeaderboard } from '../leaderboard';
+import { HISTORY_STEP } from '../prosperity';
+import { SAVE_VERSION } from '../version';
 
-export const SAVE_VERSION = 1;
+export { SAVE_VERSION };
 
 function hsl(h: number, s: number, l: number): string {
   s /= 100;
@@ -201,8 +205,6 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
       militaryStrength: 0,
       tradeVolume: 0,
       history: [],
-      yearsGolden: 0,
-      daysHegemon: 0,
       sabotageCooldown: 0,
       tempMods: [],
       ledger: {},
@@ -283,6 +285,11 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
     player: -1,
     gameOver: null,
     tutorialStep: 0,
+    leaderboard: emptyLeaderboard(0, settings.startYear),
+    notices: [],
+    nextNoticeId: 1,
+    noticeCooldowns: {},
+    historyStep: HISTORY_STEP,
   };
 
   // starting armies
@@ -305,5 +312,6 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
       });
     }
   }
+  ensureDefaults(state);
   return { state, map: gm };
 }

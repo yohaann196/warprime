@@ -5,8 +5,10 @@ import { DiplomacyPanel, PeaceDialog } from './Diplomacy';
 import type { MapMode, Tab } from './game';
 import { useGame } from './hooks';
 import { mainRenderer, MapView } from './MapView';
-import { EventModal, GameOverModal, Menu, Toasts, Tutorial } from './Modals';
-import { EconomyPanel, GovernmentPanel, LogPanel, MilitaryPanel, RankingsPanel, ResearchPanel } from './Panels';
+import { EndScreen } from './EndScreen';
+import { HallOfFame } from './HallOfFame';
+import { EventModal, Menu, Toasts, Tutorial } from './Modals';
+import { EconomyPanel, GovernmentPanel, LeaderboardPanel, LogPanel, MilitaryPanel, ResearchPanel } from './Panels';
 import { ProvincePanel } from './ProvincePanel';
 import { MainMenu, SetupScreen } from './Setup';
 import { TopBar } from './TopBar';
@@ -17,7 +19,7 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'research', icon: '🔬', label: 'Research' },
   { id: 'military', icon: '🪖', label: 'Military' },
   { id: 'diplomacy', icon: '🤝', label: 'Diplomacy' },
-  { id: 'rankings', icon: '⭐', label: 'Rankings' },
+  { id: 'rankings', icon: '🏆', label: 'Leaderboard' },
   { id: 'log', icon: '📰', label: 'Log' },
 ];
 
@@ -32,6 +34,8 @@ const MODES: { id: MapMode; label: string }[] = [
 export function App() {
   const g = useGame();
   const [menu, setMenu] = useState(false);
+  const [hof, setHof] = useState(false);
+  const hallOfFame = hof && <HallOfFame onClose={() => setHof(false)} highlight={g.screen === 'playing' ? g.state.runId : undefined} />;
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -64,7 +68,8 @@ export function App() {
   if (g.screen === 'menu') {
     return (
       <>
-        <MainMenu g={g} />
+        <MainMenu g={g} onHallOfFame={() => setHof(true)} />
+        {hallOfFame}
         <Tooltip />
       </>
     );
@@ -80,6 +85,7 @@ export function App() {
 
   const newGame = () => {
     setMenu(false);
+    setHof(false);
     g.speed = 0;
     g.prepare(defaultSettings(Math.floor(Math.random() * 1_000_000), g.state.settings.difficulty));
   };
@@ -125,7 +131,7 @@ export function App() {
               {g.tab === 'research' && <ResearchPanel g={g} />}
               {g.tab === 'military' && <MilitaryPanel g={g} />}
               {g.tab === 'diplomacy' && <DiplomacyPanel g={g} />}
-              {g.tab === 'rankings' && <RankingsPanel g={g} />}
+              {g.tab === 'rankings' && <LeaderboardPanel g={g} />}
               {g.tab === 'log' && <LogPanel g={g} />}
             </div>
           )}
@@ -141,8 +147,9 @@ export function App() {
       </div>
       <EventModal g={g} />
       {g.peaceWar >= 0 && <PeaceDialog g={g} />}
-      <GameOverModal g={g} onNew={newGame} />
-      {menu && <Menu g={g} onClose={() => setMenu(false)} onNew={newGame} />}
+      <EndScreen g={g} onNew={newGame} onHallOfFame={() => setHof(true)} />
+      {menu && <Menu g={g} onClose={() => setMenu(false)} onNew={newGame} onHallOfFame={() => { setMenu(false); setHof(true); }} />}
+      {hallOfFame}
       <Tooltip />
     </div>
   );

@@ -1,32 +1,61 @@
-// The Prosperity Index (the score every nation competes on) and victory conditions.
-import { TECHS } from '../data/techs';
+// The Prosperity Index: the score every nation is ranked on each month (see leaderboard.ts).
 import { militaryStrength } from './military/units';
-import { alliesOf, log, nationPop, neighborsOf, ownedProvinces, puppetsOf } from './query';
-import { yearOf, type GameState, type VictoryType } from './state';
+import { nationPop, neighborsOf, ownedProvinces } from './query';
+import type { GameState, Nation } from './state';
 
 export const PROSPERITY_WEIGHTS: Record<string, { label: string; weight: number; desc: string }> = {
-  wealth: { label: 'Wealth per person', weight: 0.28, desc: 'GDP per capita relative to the richest nation' },
+  wealth: { label: 'Wealth per person', weight: 0.26, desc: 'GDP per capita relative to the richest nation' },
   economy: { label: 'Economic size', weight: 0.14, desc: 'Total GDP relative to the largest economy' },
-  wellbeing: { label: 'Wellbeing', weight: 0.16, desc: 'Average of happiness and stability' },
+  wellbeing: { label: 'Wellbeing', weight: 0.15, desc: 'Average of happiness and stability' },
   population: { label: 'Population', weight: 0.08, desc: 'Population relative to the most populous nation' },
-  technology: { label: 'Technology', weight: 0.12, desc: 'Share of all technologies researched' },
+  technology: { label: 'Technology', weight: 0.1, desc: 'Technologies researched relative to the most advanced nation' },
   trade: { label: 'Trade', weight: 0.08, desc: 'Trade volume relative to the biggest trader' },
   security: { label: 'Security', weight: 0.08, desc: 'Military strength versus neighbours' },
-  reputation: { label: 'Reputation', weight: 0.06, desc: 'Trustworthiness in the eyes of the world' },
+  reputation: { label: 'Reputation', weight: 0.05, desc: 'Trustworthiness in the eyes of the world' },
+  climate: { label: 'Climate responsibility', weight: 0.06, desc: 'Fossil emissions per unit of GDP vs the world average, plus green investment' },
 };
+
+/** Technologies counted for the relative technology score. */
+function techScore(n: Nation): number {
+  return n.tech.researched.length;
+}
+
+/** Net fossil emissions per day (gross minus abatement); 0 until the climate subsystem runs. */
+function netEmissions(n: Nation): number {
+  return Math.max(0, (n.emissions ?? 0) - (n.abated ?? 0));
+}
 
 export function computeProsperity(state: GameState): void {
   const alive = state.nations.filter((n) => n.alive);
   const stats = alive.map((n) => {
     const pop = Math.max(1, nationPop(state, n.id));
-    return { n, pop, gdp: n.gdp, gdpPc: n.gdp / pop, strength: militaryStrength(state, n.id) };
+    const gdp = Math.max(1, n.gdp);
+    return {
+      n,
+      pop,
+      gdp: n.gdp,
+      gdpPc: n.gdp / pop,
+      strength: militaryStrength(state, n.id),
+      intensity: netEmissions(n) / gdp,
+      greenShare: Math.max(0, n.greenSpend ?? 0) / gdp,
+    };
   });
   const max = (f: (s: (typeof stats)[number]) => number) => Math.max(1e-9, ...stats.map(f));
   const maxPc = max((s) => s.gdpPc);
   const maxGdp = max((s) => s.gdp);
   const maxPop = max((s) => s.pop);
   const maxTrade = max((s) => s.n.tradeVolume);
+  const maxTech = Math.max(1, ...stats.map((s) => techScore(s.n)));
   const strengthOf = new Map(stats.map((s) => [s.n.id, s.strength]));
+  // climate responsibility: the world-average emission intensity scores 50, clean scores 100, twice the average 0
+  let worldEmissions = 0;
+  let worldGdp = 0;
+  for (const s of stats) {
+    worldEmissions += netEmissions(s.n);
+    worldGdp += Math.max(1, s.n.gdp);
+  }
+  const worldIntensity = worldGdp > 0 ? worldEmissions / worldGdp : 0;
+  const maxGreen = Math.max(0, ...stats.map((s) => s.greenShare));
 
   for (const s of stats) {
     const n = s.n;
@@ -37,15 +66,18 @@ export function computeProsperity(state: GameState): void {
     let fallout = 0;
     const owned = ownedProvinces(state, n.id);
     for (const pid of owned) if (state.provinces[pid].fallout > 0) fallout++;
+    const emissionScore = worldIntensity <= 0 ? 100 : 100 * Math.max(0, Math.min(1, 1 - (0.5 * s.intensity) / worldIntensity));
+    const greenScore = maxGreen <= 0 ? 0 : (100 * s.greenShare) / maxGreen;
     const parts: Record<string, number> = {
       wealth: (s.gdpPc / maxPc) * 100,
       economy: (s.gdp / maxGdp) * 100,
       wellbeing: (n.happiness + n.stability) / 2,
       population: (s.pop / maxPop) * 100,
-      technology: (n.tech.researched.length / TECHS.length) * 100,
+      technology: (techScore(n) / maxTech) * 100,
       trade: (n.tradeVolume / maxTrade) * 100,
       security,
       reputation: n.trust,
+      climate: 0.75 * emissionScore + 0.25 * greenScore,
     };
     let total = 0;
     for (const [k, v] of Object.entries(parts)) total += v * PROSPERITY_WEIGHTS[k].weight;
@@ -57,66 +89,30 @@ export function computeProsperity(state: GameState): void {
   for (const n of state.nations) if (!n.alive) n.prosperity = 0;
 }
 
+/** Living nations by prosperity, best first; ties go to the lower nation id. */
 export function ranking(state: GameState): { nation: number; prosperity: number }[] {
   return state.nations
     .filter((n) => n.alive)
     .map((n) => ({ nation: n.id, prosperity: n.prosperity }))
-    .sort((a, b) => b.prosperity - a.prosperity);
+    .sort((a, b) => b.prosperity - a.prosperity || a.nation - b.nation);
 }
 
-export const VICTORY_INFO: Record<VictoryType, { name: string; desc: string }> = {
-  domination: { name: 'Domination', desc: 'Own 55% of all land provinces.' },
-  hegemon: { name: 'Economic Hegemon', desc: 'From 1950: produce 40% of world GDP for 3 straight years.' },
-  golden_age: { name: 'Golden Age', desc: 'From 1950: lead the prosperity ranking by 5+ points with happiness and stability of 85+ for 15 straight years.' },
-  scientific: { name: 'Scientific', desc: 'Complete the Singularity Project.' },
-  diplomatic: { name: 'Diplomatic', desc: 'From 1950: lead a bloc of 3+ nations (you, allies and puppets) holding 65% of the world population.' },
-  prosperity: { name: 'Most Prosperous', desc: 'Have the highest Prosperity Index when the era ends.' },
-};
+export const HISTORY_STEP = 90; // days between history points at the start of a game
+export const HISTORY_MAX = 240; // points per nation before the spacing doubles
 
-/** Runs monthly. Sets state.gameOver when someone wins (or the player is wiped out). */
-export function checkVictory(state: GameState): void {
-  if (state.gameOver) return;
-  const land = state.provinces.filter((p) => !p.isSea).length;
-  const worldGdp = state.nations.reduce((s, n) => s + (n.alive ? n.gdp : 0), 0) || 1;
-  const worldPop = state.nations.reduce((s, n) => s + (n.alive ? nationPop(state, n.id) : 0), 0) || 1;
-  const rank = ranking(state);
-  const top = rank[0]?.nation ?? -1;
-
-  const win = (winner: number, type: VictoryType) => {
-    state.gameOver = { winner, type, day: state.day, ranking: ranking(state) };
-    log(state, `${state.nations[winner].name} achieves a ${VICTORY_INFO[type].name} victory!`, winner === state.player ? 'good' : 'bad', [winner]);
-  };
-
-  if (state.player >= 0 && !state.nations[state.player].alive) {
-    state.gameOver = { winner: top, type: 'defeat', day: state.day, ranking: rank };
-    return;
-  }
-
-  for (const n of state.nations) {
-    if (!n.alive) continue;
-    if (ownedProvinces(state, n.id).length / land >= 0.55) return win(n.id, 'domination');
-    if (n.tech.researched.includes('singularity_project')) return win(n.id, 'scientific');
-    const lateGame = yearOf(state) >= 1950;
-    if (n.gdp / worldGdp >= 0.4 && lateGame) n.daysHegemon += 30;
-    else n.daysHegemon = 0;
-    if (n.daysHegemon >= 365 * 3) return win(n.id, 'hegemon');
-    const lead = rank.length > 1 ? n.prosperity - rank[1].prosperity : 99;
-    if (lateGame && n.id === top && lead >= 5 && n.happiness >= 85 && n.stability >= 85) n.yearsGolden += 30;
-    else n.yearsGolden = 0;
-    if (n.yearsGolden >= 365 * 15) return win(n.id, 'golden_age');
-    const bloc = new Set([n.id, ...alliesOf(state, n.id), ...puppetsOf(state, n.id)]);
-    let blocPop = 0;
-    for (const b of bloc) blocPop += nationPop(state, b);
-    if (lateGame && bloc.size >= 3 && blocPop / worldPop >= 0.65 && n.id === rank.find((r) => bloc.has(r.nation))?.nation) return win(n.id, 'diplomatic');
-  }
-
-  if (yearOf(state) >= state.settings.endYear && top >= 0) win(top, 'prosperity');
-}
-
+/**
+ * Appends a history point for every living nation. Called when state.day is a multiple of
+ * state.historyStep. When a history grows past HISTORY_MAX the step doubles and every nation keeps
+ * only the points on the new grid, so histories span the whole game at a uniform, coarser spacing.
+ */
 export function recordHistory(state: GameState): void {
+  let over = false;
   for (const n of state.nations) {
     if (!n.alive) continue;
     n.history.push({ day: state.day, prosperity: Math.round(n.prosperity * 10) / 10, gdp: Math.round(n.gdp) });
-    if (n.history.length > 400) n.history.shift();
+    if (n.history.length > HISTORY_MAX) over = true;
   }
+  if (!over) return;
+  state.historyStep *= 2;
+  for (const n of state.nations) n.history = n.history.filter((h) => h.day % state.historyStep === 0);
 }

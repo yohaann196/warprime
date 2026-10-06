@@ -15,16 +15,16 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 1_000_000);
 }
 
-export function MainMenu({ g }: { g: Game }) {
+export function MainMenu({ g, onHallOfFame }: { g: Game; onHallOfFame: () => void }) {
   const [saves, setSaves] = useState<SaveMeta[]>([]);
   const [err, setErr] = useState('');
   useEffect(() => void listSaves().then(setSaves), []);
-  const latest = saves[0];
+  const latest = saves.find((sv) => sv.compatible !== false);
   return (
     <div class="main-menu">
       <div class="title-card">
         <h1>WARPRIME</h1>
-        <p class="tagline">Click your nation to greatness. Conquer, trade or flourish — the most prosperous nation wins.</p>
+        <p class="tagline">Lead a nation from 1900 to 3000. There are no victories: survive, and stay on top of the world for as long as you can.</p>
         <div class="menu-buttons">
           <button class="big" onClick={() => g.prepare(defaultSettings(randomSeed()))}>
             New game
@@ -44,13 +44,16 @@ export function MainMenu({ g }: { g: Game }) {
               Continue — {latest.nation}, {latest.date}
             </button>
           )}
+          <button class="ghost" onClick={onHallOfFame}>
+            🏆 Hall of Fame
+          </button>
         </div>
         {err && <div class="neg">{err}</div>}
         <ul class="pitch">
           <li>👆 Every click works your land, speeds construction or pushes your armies forward.</li>
           <li>🏭 Build production chains, trade on a living world market, research through five eras.</li>
           <li>🤝 Ally, trade, lend — or betray. The world remembers. Nukes exist; using them has a price.</li>
-          <li>⭐ Win by prosperity, economy, science, diplomacy or domination.</li>
+          <li>🏆 Two leaderboards: who leads the world now, and who has led it longest. The game ends in 3000, or when your nation falls.</li>
         </ul>
       </div>
     </div>
@@ -179,7 +182,7 @@ export function SetupScreen({ g }: { g: Game }) {
             </div>
           </div>
         ) : (
-          <div class="nation-card muted">No nation selected. Big nations are powerful; small ones can still win by being the most prosperous.</div>
+          <div class="nation-card muted">No nation selected. Big nations are powerful; small ones can still top the leaderboard by being the most prosperous.</div>
         )}
 
         <h3>Difficulty</h3>

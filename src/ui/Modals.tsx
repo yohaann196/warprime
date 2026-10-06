@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { EVENT_BY_ID } from '../sim/events';
-import { VICTORY_INFO } from '../sim/prosperity';
 import { DIFFICULTY } from '../sim/difficulty';
-import { dateString } from '../sim/state';
 import { deleteSave, exportSave, importSave, listSaves, loadGame, saveGame, type SaveMeta } from '../save';
-import { Flag } from './components';
 import type { Game } from './game';
 
 export function EventModal({ g }: { g: Game }) {
   const s = g.state;
+  if (s.gameOver) return null;
   const idx = s.pendingEvents.findIndex((e) => e.nation === s.player);
   if (idx < 0) return null;
   const ev = s.pendingEvents[idx];
@@ -35,43 +33,7 @@ export function EventModal({ g }: { g: Game }) {
   );
 }
 
-export function GameOverModal({ g, onNew }: { g: Game; onNew: () => void }) {
-  const s = g.state;
-  const over = s.gameOver;
-  const [hidden, setHidden] = useState(false);
-  if (!over || hidden) return null;
-  const won = over.winner === s.player && over.type !== 'defeat';
-  const rank = over.ranking.findIndex((r) => r.nation === s.player) + 1;
-  const winner = s.nations[over.winner];
-  return (
-    <div class="modal-back">
-      <div class="modal gameover" role="dialog" aria-label="Game over">
-        <h1>{won ? '🏆 Victory!' : over.type === 'defeat' ? '💀 Your nation has fallen' : '🏁 The age has ended'}</h1>
-        {over.type !== 'defeat' && winner && (
-          <p>
-            <Flag nation={winner} size={18} /> <b>{winner.name}</b> wins by <b>{VICTORY_INFO[over.type].name}</b> on {dateString({ ...s, day: over.day })}.
-          </p>
-        )}
-        {rank > 0 && <p>Your final prosperity rank: <b>#{rank}</b> of {over.ranking.length}.</p>}
-        <ol class="ranking">
-          {over.ranking.slice(0, 8).map((r) => (
-            <li key={r.nation} class={r.nation === s.player ? 'me' : ''}>
-              <Flag nation={s.nations[r.nation]} size={14} /> <span class="rname">{s.nations[r.nation].name}</span> <b>{r.prosperity.toFixed(1)}</b>
-            </li>
-          ))}
-        </ol>
-        <div class="row">
-          <button class="ghost" onClick={() => setHidden(true)}>
-            Look at the map
-          </button>
-          <button onClick={onNew}>New game</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function Menu({ g, onClose, onNew }: { g: Game; onClose: () => void; onNew: () => void }) {
+export function Menu({ g, onClose, onNew, onHallOfFame }: { g: Game; onClose: () => void; onNew: () => void; onHallOfFame: () => void }) {
   const [saves, setSaves] = useState<SaveMeta[]>([]);
   const [msg, setMsg] = useState('');
   const refresh = () => void listSaves().then(setSaves);
@@ -130,6 +92,9 @@ export function Menu({ g, onClose, onNew }: { g: Game; onClose: () => void; onNe
             ⬆️ Import save file
             <input type="file" accept="application/json,.json" onChange={upload} />
           </label>
+          <button class="ghost" onClick={onHallOfFame}>
+            🏆 Hall of Fame
+          </button>
           <button class="ghost" onClick={onNew}>
             ✨ New game
           </button>
@@ -142,8 +107,9 @@ export function Menu({ g, onClose, onNew }: { g: Game; onClose: () => void; onNe
               <div key={sv.slot} class="save-row">
                 <span>
                   <b>{sv.slot}</b> — {sv.nation}, {sv.date} <small class="muted">({sv.difficulty})</small>
+                  {sv.crown && <span data-tip="The world's #1 when saved"> 👑</span>}
                 </span>
-                <button class="mini" onClick={() => load(sv.slot)}>
+                <button class="mini" disabled={sv.compatible === false} data-tip={sv.compatible === false ? 'Saved by a newer Warprime. Reload the page to update.' : undefined} onClick={() => load(sv.slot)}>
                   Load
                 </button>
                 <button class="mini ghost" onClick={() => void deleteSave(sv.slot).then(refresh)} aria-label="Delete save">
@@ -173,9 +139,10 @@ const STEPS: { text: string; done: (g: Game) => boolean }[] = [
   { text: '👆 Click your own provinces on the map to WORK them. Each click earns money and some of what the province produces. Spam-clicking heats up — watch the meter at the top.', done: (g) => g.player.clicks.totalClicks >= 6 },
   { text: '🏗️ Select one of your provinces and build something from the right-hand panel — a Farm, Mine or Steel Mill is a good start. Clicking a province under construction speeds it up.', done: (g) => g.state.provinces.some((p) => p.owner === g.state.player && p.construction) },
   { text: '🔬 Open the Research tab and choose a technology. You can click the research button to speed it up too.', done: (g) => !!g.player.tech.current },
-  { text: '▶ Press Space (or the ▶ buttons) to let time flow. Factories produce, people grow, and every month nations are ranked by Prosperity ⭐.', done: (g) => g.state.day > 20 },
+  { text: '▶ Press Space (or the ▶ buttons) to let time flow. Factories produce, people grow, and every month nations are ranked by Prosperity on the 🏆 Leaderboard.', done: (g) => g.state.day > 20 },
   { text: '🪖 Your army stands at the capital. Click the unit plate to select it, then click a province to move. In a war, click contested provinces to push the attack.', done: (g) => g.selectedDivs.size > 0 },
-  { text: '🤝 Diplomacy tab: make allies, sign trade contracts, borrow and lend. Betrayal and nuclear weapons are remembered by everyone. Win by being the most prosperous nation — conquest is only one path.', done: () => false },
+  { text: '🤝 Diplomacy tab: make allies, sign trade contracts, borrow and lend. Betrayal and nuclear weapons are remembered by everyone.', done: (g) => g.tab === 'diplomacy' },
+  { text: '🏆 There are no victories. Survive until 3000 and lead the world for as long as you can: the Leaderboard tab shows who is #1 now and who has led longest. The game ends early if your nation falls or Earth becomes uninhabitable.', done: () => false },
 ];
 
 export function Tutorial({ g }: { g: Game }) {

@@ -1,3 +1,4 @@
+import { expect } from 'vitest';
 import { newGame } from '../src/sim/worldgen';
 import { choosePlayerNation, defaultSettings } from '../src/sim/setup';
 import type { Difficulty, GameState } from '../src/sim/state';
@@ -26,4 +27,33 @@ export function landNeighbor(state: GameState, a: number): number {
     }
   }
   return -1;
+}
+
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+/** World invariants that must hold after any number of days. */
+export function invariants(s: GameState): void {
+  for (const n of s.nations) {
+    expect(Number.isFinite(n.money)).toBe(true);
+    expect(Number.isFinite(n.prosperity)).toBe(true);
+  }
+  for (const p of s.provinces) {
+    if (p.isSea) continue;
+    expect(Number.isFinite(p.pop)).toBe(true);
+    if (p.owner >= 0) expect(s.nations[p.owner].alive).toBe(true);
+  }
+  for (const d of s.divisions) {
+    expect(s.nations[d.owner].alive).toBe(true);
+    expect(d.strength).toBeGreaterThan(0);
+  }
+  // leaderboards: every nation has a record and the time at #1 adds up to the sampled time
+  const lb = s.leaderboard;
+  expect(lb.records.length).toBe(s.nations.length);
+  expect(sum(lb.records.map((r) => r.daysAtTop))).toBe(lb.lastSampleDay);
+  expect(lb.allTimeOrder.length).toBe(s.nations.length);
+  if (lb.crown >= 0 && !s.nations[lb.crown].alive) expect(lb.records[lb.crown].diedDay).toBeGreaterThanOrEqual(lb.lastSampleDay);
+  for (const n of s.nations) expect(n.history.length).toBeLessThanOrEqual(240);
+  expect(s.notices.length).toBeLessThanOrEqual(40);
+  // the only ending a running world can reach this early is the player's elimination
+  if (s.gameOver) expect(s.gameOver.cause).toBe('eliminated');
 }

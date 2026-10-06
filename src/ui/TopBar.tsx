@@ -3,9 +3,9 @@ import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey } from '../data/institutions';
 import { heatEfficiency, upgradeCost } from '../sim/clicks';
 import { breakdown } from '../sim/modifiers';
-import { ranking } from '../sim/prosperity';
+import { allTimeRank, currentRank, yearsFmt } from '../sim/leaderboard';
 import { nationPop } from '../sim/query';
-import { dateString } from '../sim/state';
+import { dateString, yearOf } from '../sim/state';
 import { Flag, fmt, signed } from './components';
 import type { Game } from './game';
 import { SPEEDS } from './game';
@@ -29,13 +29,38 @@ function modTip(g: Game, key: 'happiness' | 'stability', current: number, extra:
   return lines.join('\n');
 }
 
+function rankTip(g: Game, rank: number): string {
+  const s = g.state;
+  const n = g.player;
+  const lb = s.leaderboard;
+  const lines = [`— Prosperity Index: ${n.prosperity.toFixed(1)}`];
+  lines.push(rank ? `Rank #${rank} of ${lb.order.length} (monthly)` : 'Ranked after the first month');
+  if (rank > 1) {
+    const up = s.nations[lb.order[rank - 2]];
+    lines.push(`${up.name} is ${(up.prosperity - n.prosperity).toFixed(1)} points ahead`);
+  } else if (rank === 1 && lb.order[1] !== undefined) {
+    const down = s.nations[lb.order[1]];
+    lines.push(`${(n.prosperity - down.prosperity).toFixed(1)} points ahead of ${down.name}`);
+  }
+  if (lb.crown === n.id) lines.push('👑 You hold the crown: the world\'s #1');
+  const rec = lb.records[n.id];
+  const at = allTimeRank(s, n.id);
+  lines.push(`All-time #${at || '—'} · ${rec && rec.daysAtTop > 0 ? yearsFmt(rec.daysAtTop) : 'no time'} at #1`);
+  const left = Math.max(0, s.settings.endYear - yearOf(s));
+  lines.push(`${left} year${left === 1 ? '' : 's'} left until ${s.settings.endYear}`);
+  lines.push('Click for the leaderboards.');
+  return lines.join('\n');
+}
+
 export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
   const s = g.state;
   const n = g.player;
   if (!n) return null;
+  if (!n.alive) return <SpectatorBar g={g} onMenu={onMenu} />;
   let net = 0;
   for (const v of Object.values(n.ledger)) net += v;
-  const rank = ranking(s).findIndex((r) => r.nation === n.id) + 1;
+  const rank = currentRank(s, n.id);
+  const crowned = s.leaderboard.crown === n.id;
   const doc = DOCTRINES[doctrineKey(n.goals[0], n.goals[1])];
   const eff = heatEfficiency(n);
   const pop = nationPop(s, n.id);
@@ -58,22 +83,7 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
         </div>
       </button>
 
-      <div class="tb-time">
-        <div class="tb-date">{dateString(s)}</div>
-        <div class="speeds" role="group" aria-label="Game speed">
-          {SPEEDS.map((_, i) => (
-            <button
-              key={i}
-              class={`speed ${g.speed === i ? 'on' : ''}`}
-              onClick={() => g.setSpeed(i)}
-              data-tip={i === 0 ? 'Pause (Space)' : `Speed ${i} — ${SPEEDS[i]} days/second (key ${i})`}
-              aria-label={i === 0 ? 'Pause' : `Speed ${i}`}
-            >
-              {i === 0 ? '❚❚' : '▶'.repeat(Math.min(i, 3)) + (i === 4 ? '+' : '')}
-            </button>
-          ))}
-        </div>
-      </div>
+      <TimeControls g={g} />
 
       <div class="tb-stats">
         <div class="stat" data-tip={ledgerTip(g)}>
@@ -105,9 +115,9 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
           <span class="ico">🤝</span>
           <b>{Math.round(n.trust)}</b>
         </div>
-        <button class="stat prosperity" onClick={() => { g.tab = 'rankings'; g.panelOpen = true; g.notify(); }} data-tip="— Prosperity Index\nThe score every nation competes on. Click for details.">
-          <span class="ico">⭐</span>
-          <b>#{rank}</b>
+        <button class={`stat prosperity ${crowned ? 'crowned' : ''}`} onClick={() => { g.tab = 'rankings'; g.panelOpen = true; g.notify(); }} data-tip={rankTip(g, rank)} data-testid="rank-chip">
+          <span class="ico">{crowned ? '👑' : '⭐'}</span>
+          <b>{rank ? `#${rank}` : '—'}</b>
           <small>{n.prosperity.toFixed(1)}</small>
         </button>
       </div>
@@ -122,6 +132,58 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
         </button>
       </div>
 
+      <button class="menu-btn" onClick={onMenu} aria-label="Menu">
+        ☰
+      </button>
+    </header>
+  );
+}
+
+function TimeControls({ g }: { g: Game }) {
+  return (
+    <div class="tb-time">
+      <div class="tb-date">{dateString(g.state)}</div>
+      <div class="speeds" role="group" aria-label="Game speed">
+        {SPEEDS.map((_, i) => (
+          <button
+            key={i}
+            class={`speed ${g.speed === i ? 'on' : ''}`}
+            onClick={() => g.setSpeed(i)}
+            data-tip={i === 0 ? 'Pause (Space)' : `Speed ${i} — ${SPEEDS[i]} days/second (key ${i})`}
+            aria-label={i === 0 ? 'Pause' : `Speed ${i}`}
+          >
+            {i === 0 ? '❚❚' : '▶'.repeat(Math.min(i, 3)) + (i === 4 ? '+' : '')}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** After the player's nation has fallen: only the date, the speed (while spectating) and the leader. */
+function SpectatorBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
+  const s = g.state;
+  const n = g.player;
+  const crown = s.leaderboard.crown >= 0 ? s.nations[s.leaderboard.crown] : null;
+  return (
+    <header class="topbar spectator">
+      <div class="tb-nation fallen">
+        <Flag nation={n} size={24} />
+        <div>
+          <div class="tb-name">{n.name}</div>
+          <div class="tb-sub">{s.spectating ? 'Fallen · spectating' : 'Fallen'}</div>
+        </div>
+      </div>
+      {s.spectating ? <TimeControls g={g} /> : <div class="tb-date">{dateString(s)}</div>}
+      <div class="tb-stats">
+        {crown && (
+          <button class="stat prosperity" onClick={() => { g.tab = 'rankings'; g.panelOpen = true; g.notify(); }} data-tip="— The world's #1\nClick for the leaderboards.">
+            <span class="ico">👑</span>
+            <Flag nation={crown} size={14} />
+            <b>{crown.name}</b>
+          </button>
+        )}
+      </div>
       <button class="menu-btn" onClick={onMenu} aria-label="Menu">
         ☰
       </button>

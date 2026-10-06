@@ -1,8 +1,8 @@
 # Warprime
 
-A clicker grand-strategy game for the browser. Lead a nation from 1900 to 2050 and build the
-**most prosperous country in the world** — by conquest, by economic dominance, or as a small but
-flourishing state.
+A clicker grand-strategy game for the browser. Lead a nation from 1900 to 3000. There are no
+victories: survive, and keep your country at the **top of the world** for as long as you can — by
+conquest, by economic dominance, or as a small but flourishing state.
 
 Inspired by *Age of Clicks*; see [docs/DESIGN.md](docs/DESIGN.md) for the research and the full design.
 
@@ -19,7 +19,11 @@ Inspired by *Age of Clicks*; see [docs/DESIGN.md](docs/DESIGN.md) for the resear
   treaty desk that shows you the AI's reasoning before you propose.
 - **Nuclear weapons**: devastating, and the whole world will turn against you.
 - **Three difficulties**: Beginner, Realistic and Demonic.
-- **Prosperity Index** ranking and six ways to win; saves in the browser with export/import.
+- **Two leaderboards** instead of victory conditions: the monthly Prosperity Index ranking (who
+  holds the crown now) and the all-time board (who led the world longest). The game ends on
+  1 Jan 3000, when Earth becomes uninhabitable, or when your nation falls — then you can spectate.
+- **End screen and Hall of Fame** with your final record, who led when, and a legacy score;
+  saves in the browser with export/import (older saves are upgraded automatically).
 
 ## Play
 

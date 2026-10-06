@@ -1,23 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { advanceDay } from '../src/sim/tick';
-import { clone, game } from './helpers';
-import type { Difficulty, GameState } from '../src/sim/state';
-
-function invariants(s: GameState) {
-  for (const n of s.nations) {
-    expect(Number.isFinite(n.money)).toBe(true);
-    expect(Number.isFinite(n.prosperity)).toBe(true);
-  }
-  for (const p of s.provinces) {
-    if (p.isSea) continue;
-    expect(Number.isFinite(p.pop)).toBe(true);
-    if (p.owner >= 0) expect(s.nations[p.owner].alive).toBe(true);
-  }
-  for (const d of s.divisions) {
-    expect(s.nations[d.owner].alive).toBe(true);
-    expect(d.strength).toBeGreaterThan(0);
-  }
-}
+import { clone, game, invariants } from './helpers';
+import type { Difficulty } from '../src/sim/state';
 
 describe('headless simulation', () => {
   for (const diff of ['beginner', 'realistic', 'demonic'] as Difficulty[]) {
@@ -28,6 +12,7 @@ describe('headless simulation', () => {
         invariants(s);
       }
       expect(s.day).toBeGreaterThan(365 * 5);
+      expect(s.leaderboard.reigns.length).toBeGreaterThan(0);
     }, 120_000);
   }
 

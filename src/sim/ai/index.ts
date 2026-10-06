@@ -31,7 +31,8 @@ import {
 } from '../query';
 import { rand } from '../rng';
 import { availableTechs, setResearch } from '../tech';
-import { INSTITUTIONS, yearOf, type BuildingId, type GameState, type Institution, type Nation, type UnitType } from '../state';
+import { crownSince, currentRank, runawayLeader } from '../leaderboard';
+import { DAYS_PER_YEAR, INSTITUTIONS, yearOf, type BuildingId, type GameState, type Institution, type Nation, type UnitType } from '../state';
 
 export function runAI(state: GameState): void {
   for (const n of state.nations) {
@@ -55,7 +56,6 @@ function techWeight(n: Nation, t: TechDef): number {
   if (focus === 'science' && (t.line === 'science' || t.line === 'society')) w = 1.8;
   if (focus === 'trade' && (t.line === 'society' || t.line === 'industry')) w = 1.6;
   if (t.id === 'nuclear_weapons') w *= n.personality.aggression;
-  if (t.id === 'singularity_project') w *= focus === 'science' ? 1 : 0.02;
   return w / Math.sqrt(techCost(t));
 }
 
@@ -322,14 +322,6 @@ function aiMilitary(state: GameState, n: Nation): void {
 // Diplomacy
 // ------------------------------------------------------------------------------------------
 
-function playerIsRunaway(state: GameState): boolean {
-  if (state.player < 0) return false;
-  const p = state.nations[state.player];
-  if (!p.alive) return false;
-  const others = state.nations.filter((n) => n.alive && !n.isPlayer).map((n) => n.prosperity);
-  return p.prosperity > Math.max(0, ...others) * 1.05;
-}
-
 function canPropose(state: GameState, from: number, to: number): boolean {
   const T = state.nations[to];
   if (!T.isPlayer) return true;
@@ -421,15 +413,22 @@ function aiDiplomacy(state: GameState, n: Nation): void {
     return;
   }
 
-  // coalition: gang up on a runaway superpower while it is busy fighting someone else
+  // grand alliance: gang up on a superpower (balance of power) or a long-reigning runaway #1
+  // while it is busy fighting someone else
   const land = state.provinces.filter((p) => !p.isSea).length;
+  const runaway = runawayLeader(state);
+  const since = crownSince(state);
+  const longReign = runaway >= 0 && since >= 0 && diff.leaderAllianceYears > 0 && state.day - since >= diff.leaderAllianceYears * DAYS_PER_YEAR ? runaway : -1;
   for (const sp of state.nations) {
     if (!sp.alive || sp.id === n.id || isFriendly(state, n.id, sp.id) || findPact(state, 'truce', n.id, sp.id)) continue;
-    if (ownedProvinces(state, sp.id).length < land * 0.18 || opinion(state, n.id, sp.id) > -10) continue;
+    const big = ownedProvinces(state, sp.id).length >= land * 0.18;
+    if (!big && sp.id !== longReign) continue;
+    const op = opinion(state, n.id, sp.id);
+    if (!(big && op <= -10) && !(sp.id === longReign && op <= 10)) continue;
     const spWar = warsOf(state, sp.id)[0];
     if (spWar && rand(state) < 0.25 * diff.aiAggression) {
       joinWar(state, spWar, n.id, spWar.attackers.includes(sp.id) ? 'defenders' : 'attackers');
-      log(state, `${n.name} joins the coalition against ${sp.name}.`, 'war', [n.id, sp.id]);
+      log(state, `${n.name} joins the grand alliance against ${sp.name}.`, 'war', [n.id, sp.id]);
       return;
     }
   }
@@ -437,6 +436,7 @@ function aiDiplomacy(state: GameState, n: Nation): void {
   const my = militaryStrength(state, n.id);
   const allyStrength = alliesOf(state, n.id).reduce((s, a) => s + militaryStrength(state, a), 0);
   const elapsedYears = yearOf(state) - state.settings.startYear;
+  const playerRank = state.player >= 0 ? currentRank(state, state.player) : 0;
 
   // --- war ---
   if (elapsedYears >= 2 && n.warExhaustion < 8 && n.stability > 40) {
@@ -450,7 +450,9 @@ function aiDiplomacy(state: GameState, n: Nation): void {
       const ratio = (my + allyStrength * 0.4) / Math.max(1, theirs);
       let desire = n.personality.aggression * diff.aiAggression * (ratio - 1.1) * 0.8 - opinion(state, n.id, t) / 150 + 0.05;
       desire -= Math.max(0, ownedProvinces(state, n.id).length - 25) / 120; // big empires are harder to rally for more war
-      if (diff.gangUpOnLeader && state.nations[t].isPlayer && playerIsRunaway(state)) desire += 0.35;
+      // envy: the world's #1 makes enemies, and on Demonic so does a player near the top
+      if (t === runaway) desire += diff.leaderEnvy;
+      if (t === state.player && playerRank > 0 && playerRank <= 3) desire += diff.playerEnvy;
       if (desire > bestDesire) {
         bestDesire = desire;
         best = t;

@@ -120,7 +120,7 @@ export function launchNuke(state: GameState, nation: number, province: number, r
     }
   }
 
-  // --- coalition ---
+  // --- grand alliance against the aggressor ---
   const war = warBetween(state, nation, victim);
   for (const other of state.nations) {
     if (!other.alive || other.id === nation || other.id === victim || other.isPlayer) continue;
@@ -131,7 +131,7 @@ export function launchNuke(state: GameState, nation: number, province: number, r
       if (war && war.defenders.includes(victim)) joinWar(state, war, other.id, 'defenders');
       else if (war && war.attackers.includes(victim)) joinWar(state, war, other.id, 'attackers');
       else declareWar(state, other.id, nation);
-      log(state, `${other.name} joins the coalition against ${n.name}'s nuclear aggression!`, 'war', [other.id, nation]);
+      log(state, `${other.name} joins the grand alliance against ${n.name}'s nuclear aggression!`, 'war', [other.id, nation]);
     }
   }
   return { intercepted, deaths };

@@ -404,18 +404,21 @@ export class MapRenderer {
     const s = this.state;
     const mode = this.game.mapMode;
     const iconSize = Math.max(7, Math.min(16, 11 / Math.sqrt(z)));
+    const crown = s.leaderboard.crown;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const p of s.provinces) {
       if (p.isSea) continue;
       const [x, y] = p.center;
       if (p.isCapital && p.owner >= 0) {
-        ctx.font = `${(iconSize * 1.1) / z}px sans-serif`;
+        // the world's #1 wears a crown instead of the capital star
+        const mark = p.owner === crown ? '👑' : '★';
+        ctx.font = `${(iconSize * (mark === '★' ? 1.1 : 1.25)) / z}px sans-serif`;
         ctx.fillStyle = '#fff6c8';
         ctx.strokeStyle = 'rgba(0,0,0,0.7)';
         ctx.lineWidth = 2 / z;
-        ctx.strokeText('★', x, y - 9 / z);
-        ctx.fillText('★', x, y - 9 / z);
+        if (mark === '★') ctx.strokeText(mark, x, y - 9 / z);
+        ctx.fillText(mark, x, y - 9 / z);
       }
       if (mode === 'resources' && p.resource) {
         ctx.font = `${(iconSize * 1.3) / z}px sans-serif`;
