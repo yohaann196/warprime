@@ -2,7 +2,7 @@
 // all-time board, the who-led-when timeline, the decade grid and the prosperity chart.
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { centuryHolders, crownSince, dayOfYear, ordinal, yearAt, yearsFmt } from '../sim/leaderboard';
+import { centuryHolders, crownSince, dayOfYear, ordinal, yearAt, yearsFmt, yearsShort } from '../sim/leaderboard';
 import { PROSPERITY_WEIGHTS } from '../sim/prosperity';
 import { DAYS_PER_YEAR, type AllTimeRow, type GameState, type Nation, type StandingRow } from '../sim/state';
 import { Bar, Flag } from './components';
@@ -35,20 +35,17 @@ export function partsTip(n: Nation): string {
   return lines.join('\n');
 }
 
-function yearsShort(days: number): string {
-  const y = days / DAYS_PER_YEAR;
-  return y >= 10 ? String(Math.round(y)) : y.toFixed(1);
-}
-
 /** The live monthly ranking as rows. */
 export function liveStandings(s: GameState): StandingRow[] {
   return s.leaderboard.order.map((nation, i) => ({ nation, rank: i + 1, prosperity: s.nations[nation].prosperity }));
 }
 
-/** Monthly ranking. live: rank-change arrows against the start of the year, crown and challenger tags. */
-export function CurrentStandings({ s, rows, live, onPick }: { s: GameState; rows: StandingRow[]; live: boolean; onPick?: (id: number) => void }) {
+/**
+ * Monthly ranking. live: rank-change arrows against the start of the year, and the challenger tag.
+ * crown: the nation to tag with the crown (default: the current holder).
+ */
+export function CurrentStandings({ s, rows, live, crown = s.leaderboard.crown, onPick }: { s: GameState; rows: StandingRow[]; live: boolean; crown?: number; onPick?: (id: number) => void }) {
   const lb = s.leaderboard;
-  const crown = live ? lb.crown : (s.gameOver?.crown ?? lb.crown);
   if (!rows.length) return <div class="muted small">The first ranking is published after the first month.</div>;
   const max = Math.max(1, ...rows.map((r) => r.prosperity));
   return (
@@ -120,7 +117,7 @@ export function AllTimeStandings({ s, rows }: { s: GameState; rows: AllTimeRow[]
           const dead = r.diedDay >= 0;
           const tip = [
             `— ${n.name}`,
-            `${yearsFmt(r.daysAtTop)} at #1 over ${rec.reigns} reign${rec.reigns === 1 ? '' : 's'}`,
+            r.daysAtTop > 0 ? `${yearsFmt(r.daysAtTop)} at #1 over ${rec.reigns} reign${rec.reigns === 1 ? '' : 's'}` : 'Never #1',
             `Longest reign: ${rec.longestReign ? yearsFmt(rec.longestReign) : '—'}`,
             `Best rank: ${rec.bestRank ? `#${rec.bestRank}` : '—'}`,
             `Peak prosperity: ${rec.peakProsperity.toFixed(1)} (${yearAt(s, rec.peakProsperityDay)})`,

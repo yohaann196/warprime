@@ -214,11 +214,13 @@ Rules every subsystem follows so they can be built separately:
   path from stored JSON to a game is `migrateState` in `src/save/migrate.ts`: a shape check,
   `SaveError` codes `corrupt` / `newer` / `unknownMap` / `mapChanged`, one migration step per version
   (v1→v2: `mapId 'random'`, `endYear 3000`, victory fields dropped, `gameOver = null`, invalid research
-  cleared), then the default fillers.
+  cleared), then the default fillers, then `checkEnd`, so a v1 game whose nation had fallen loads
+  with its v2 ending.
 - **Default fillers.** Each subsystem exports one idempotent `ensureXDefaults(state, nationId?)` and
   registers it in `src/sim/defaults.ts`. `newGame`, migration and the revival of a dead nation run
   the same registry. The leaderboard filler rebuilds the boards of an old save from the prosperity
-  histories, crediting the time before the first surviving sample to that sample's leader.
+  histories. It ranks only the days every history still covers (v1 dropped points past 400), credits
+  the time before the first of them to that sample's ranking, and credits no one past their last sample.
 - **Storage.** Saves and the Hall of Fame (key `hof`) live in Warprime's own IndexedDB store
   (`createStore('warprime', 'saves')`), because github.io origins are shared by every project page.
   Saves from the default store are moved once (copy first, then delete; flag
@@ -231,7 +233,9 @@ Rules every subsystem follows so they can be built separately:
   AI → checkAlive → day++ → monthly (eras, prosperity, leaderboard sample, AI tiers, climate) →
   history → yearly → `checkEnd`.
 - **The end.** `checkEnd` (end of the day) is the only code that sets `state.gameOver`. Causes:
-  `climate_collapse`, `eliminated`, `year_limit`, in that priority.
+  `climate_collapse`, `eliminated`, `year_limit`, in that priority. When the world ends after the
+  player fell (while spectating, or that same day), `gameOver.worldEnd` records its cause, day,
+  crown and climate damage.
 - **History.** `Nation.history` holds a point every `state.historyStep` days; when a history passes
   240 points the step doubles and every nation keeps the points on the new grid. Charts plot by
   `entry.day`.

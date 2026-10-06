@@ -8,6 +8,7 @@ import {
   runawayLeader,
   sampleLeaderboard,
   yearsFmt,
+  yearsShort,
 } from '../src/sim/leaderboard';
 import { computeProsperity, HISTORY_MAX, PROSPERITY_WEIGHTS, recordHistory } from '../src/sim/prosperity';
 import { markDirty, notice, ownedProvinces } from '../src/sim/query';
@@ -184,6 +185,21 @@ describe('deaths and revival', () => {
     expect(r.diedDay).toBe(75);
     expect(r.deaths).toBe(2);
   });
+
+  it('headlines the fall of the #1 even when it falls on a sampling day', () => {
+    const s = controlled((i) => (i === 2 ? 60 : 50 - i));
+    const victim = 2;
+    expect(s.leaderboard.crown).toBe(victim);
+    const killer = landNeighbor(s, victim);
+    kill(s, victim, killer);
+    // the tick order: the monthly sample, then checkEnd (which also records deaths)
+    sampleAt(s, 30);
+    markDeaths(s);
+    const fallen = s.notices.filter((n) => n.text.includes('has fallen'));
+    expect(fallen.map((n) => n.text)).toEqual([`${s.nations[victim].name}, the world's #1 nation, has fallen to ${s.nations[killer].name}.`]);
+    expect(s.leaderboard.records[victim].diedDay).toBe(30);
+    expect(s.leaderboard.crown).not.toBe(victim);
+  });
 });
 
 describe('notices', () => {
@@ -297,9 +313,15 @@ describe('AI envy of the world #1', () => {
   });
 
   it('formats reign lengths', () => {
+    expect(yearsFmt(0)).toBe('0 months');
+    expect(yearsFmt(10)).toBe('1 month');
     expect(yearsFmt(30)).toBe('1 month');
     expect(yearsFmt(365)).toBe('1 year');
     expect(yearsFmt(547)).toBe('1.5 years');
     expect(yearsFmt(365 * 120)).toBe('120 years');
+    expect(yearsShort(0)).toBe('0');
+    expect(yearsShort(146)).toBe('0.4');
+    expect(yearsShort(365 * 7.5)).toBe('7.5');
+    expect(yearsShort(365 * 1100)).toBe('1100');
   });
 });

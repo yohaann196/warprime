@@ -94,12 +94,36 @@ describe('the end of the game', () => {
     advanceDay(s);
     expect(s.day).toBe(day + 1); // the world goes on
     expect(applyCommand(s, s.player, { type: 'buyClickUpgrade' }).ok).toBe(false);
-    while (s.spectating) advanceDay(s);
+    while (s.day < 364) advanceDay(s);
+    // the crown has moved on since the player fell: the world's end records its own crown
+    const fellCrown = s.gameOver!.crown;
+    const heir = s.leaderboard.order.find((id) => id !== fellCrown)!;
+    s.leaderboard.crown = heir;
+    advanceDay(s);
+    expect(s.spectating).toBe(false);
     expect(s.day).toBe(365);
     expect(s.gameOver?.cause).toBe('eliminated');
-    expect(s.gameOver?.worldEnd).toEqual({ cause: 'year_limit', day: 365 });
+    expect(s.gameOver?.crown).toBe(fellCrown);
+    expect(s.gameOver?.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: heir, climateDamage: null });
     expect(s.leaderboard.lastSampleDay).toBe(365);
     expect(s.leaderboard.records.reduce((a, r) => a + r.daysAtTop, 0)).toBe(365);
+    advanceDay(s);
+    expect(s.day).toBe(365);
+  }, 60_000);
+
+  it('a player who falls on the day the world ends gets no spectating and no extra day', () => {
+    const s = game(7);
+    s.settings.endYear = 1901;
+    while (s.day < 364) advanceDay(s);
+    eliminatePlayer(s);
+    advanceDay(s);
+    const over = s.gameOver!;
+    expect(s.day).toBe(365);
+    expect(over.cause).toBe('eliminated'); // the elimination outranks the year limit
+    expect(over.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: s.leaderboard.crown, climateDamage: null });
+    expect(s.spectating).toBe(false);
+    expect(s.leaderboard.lastSampleDay).toBe(365);
+    s.spectating = true; // the UI offers no Spectate once the world has ended; even so nothing moves
     advanceDay(s);
     expect(s.day).toBe(365);
   }, 60_000);

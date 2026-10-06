@@ -1,7 +1,8 @@
 // Finished runs on this device, best legacy first.
 import { useEffect, useState } from 'preact/hooks';
 import { DIFFICULTY } from '../sim/difficulty';
-import type { EndCause } from '../sim/state';
+import { DAYS_PER_YEAR, type EndCause } from '../sim/state';
+import { yearsShort } from '../sim/leaderboard';
 import { clearHallOfFame, listHallOfFame, type HallOfFameEntry } from '../save';
 import { Flag, fmt } from './components';
 
@@ -62,7 +63,7 @@ export function HallOfFame({ onClose, highlight }: { onClose: () => void; highli
                     <td>
                       #{r.allTimeRank}/{r.nationCount}
                     </td>
-                    <td>{r.yearsAtTop.toFixed(1)}</td>
+                    <td>{yearsShort(r.yearsAtTop * DAYS_PER_YEAR)}</td>
                     <td>
                       <b>{r.legacy >= 1e4 ? fmt(r.legacy) : r.legacy}</b>
                     </td>

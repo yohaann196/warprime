@@ -160,7 +160,10 @@ function TimeControls({ g }: { g: Game }) {
   );
 }
 
-/** After the player's nation has fallen: only the date, the speed (while spectating) and the leader. */
+/**
+ * After the player's nation has fallen: only the date, the speed and the leader. The speed shows
+ * while spectating, and before the ending exists (it is built at the end of the next day).
+ */
 function SpectatorBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
   const s = g.state;
   const n = g.player;
@@ -174,7 +177,7 @@ function SpectatorBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
           <div class="tb-sub">{s.spectating ? 'Fallen · spectating' : 'Fallen'}</div>
         </div>
       </div>
-      {s.spectating ? <TimeControls g={g} /> : <div class="tb-date">{dateString(s)}</div>}
+      {s.spectating || !s.gameOver ? <TimeControls g={g} /> : <div class="tb-date">{dateString(s)}</div>}
       <div class="tb-stats">
         {crown && (
           <button class="stat prosperity" onClick={() => { g.tab = 'rankings'; g.panelOpen = true; g.notify(); }} data-tip="— The world's #1\nClick for the leaderboards.">

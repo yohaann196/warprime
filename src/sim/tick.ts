@@ -1,7 +1,7 @@
 // Advances the world by one day.
 //
 // Canonical tick order (every subsystem hooks in at its slot; keep this list in sync):
-//   1. guard: a finished game stops, unless the eliminated player is spectating
+//   1. guard: a finished game stops, unless the eliminated player is spectating a world still going
 //   2. beginDay: mark the query index dirty, invalidate cached modifiers
 //   3. nation economy: production, construction, research, institutions, nukes, click cooling
 //   4. trade and prices: auto-trade, contracts, price update
@@ -36,7 +36,7 @@ import type { GameState } from './state';
 import { PROFILE, profileLap, profileStart } from './profile';
 
 export function advanceDay(state: GameState): void {
-  if (state.gameOver && !state.spectating) return;
+  if (state.gameOver && (!state.spectating || state.gameOver.worldEnd)) return;
   profileStart();
   markDirty();
   invalidateMods();

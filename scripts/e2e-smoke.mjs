@@ -5,7 +5,8 @@
 //   node scripts/e2e-smoke.mjs out https://.../warprime/ --scenario boot --retries 6   (live smoke)
 // Set CHROMIUM_PATH to use a preinstalled browser.
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { serveStatic } from './serve-static.mjs';
 
 const argv = process.argv.slice(2);
@@ -183,6 +184,35 @@ async function endings(page, shot, tag) {
   await newGameFromEndScreen(page);
   await endWith(page, 'climate_collapse', /uninhabitable/);
   await shot('14-end-climate');
+  // 4. an old (v1) save whose nation had fallen opens on its ending, and the run joins the Hall of Fame
+  await page.click('.end-buttons button:has-text("Look at the map")');
+  await page.click('.menu-btn');
+  const file = `${out}/v1-fallen.json`;
+  writeFileSync(file, fallenV1Save());
+  await page.setInputFiles('.file-btn input', file);
+  await page.waitForSelector('[data-testid="endscreen"]', { timeout: 5000 });
+  const head = await page.textContent('.end-head h1');
+  if (!/has fallen/.test(head)) throw new Error(`v1 save: unexpected end screen title "${head}"`);
+  if (!(await page.$('.end-buttons button:has-text("Spectate")'))) throw new Error('v1 save: no Spectate button');
+  await shot('15-v1-fallen');
+  await page.waitForTimeout(500);
+  await page.click('.end-buttons button:has-text("Hall of Fame")');
+  await page.waitForSelector('[data-testid="hall-of-fame"] tbody tr.me', { timeout: 5000 });
+  await page.click('[data-testid="hall-of-fame"] button:has-text("Close")');
+}
+
+/** The v1 fixture with the player's nation conquered (as a v1 'defeat' save would be). */
+function fallenV1Save() {
+  const s = JSON.parse(readFileSync(join(import.meta.dirname, '../tests/fixtures/save-v1.json'), 'utf8'));
+  const heir = s.nations.find((n) => n.id !== s.player).id;
+  for (const p of s.provinces) {
+    if (p.owner === s.player) p.owner = heir;
+    if (p.controller === s.player) p.controller = heir;
+  }
+  s.nations[s.player].alive = false;
+  s.divisions = s.divisions.filter((d) => d.owner !== s.player);
+  s.gameOver = { winner: heir, type: 'defeat', day: s.day, ranking: [] };
+  return JSON.stringify(s);
 }
 
 async function diplomacyFlow(page, shot, dismissEvents) {

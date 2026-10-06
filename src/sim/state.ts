@@ -371,7 +371,9 @@ export interface GameOver {
   current: StandingRow[];
   allTime: AllTimeRow[];
   player: PlayerFinal | null;
-  worldEnd?: { cause: Exclude<EndCause, 'eliminated'>; day: number }; // reached while spectating
+  // the world's own end after the player's elimination (reached while spectating, or the same day):
+  // its day, crown and climate damage; the fields above stay as they were when the player fell
+  worldEnd?: { cause: Exclude<EndCause, 'eliminated'>; day: number; crown: number; climateDamage: number | null };
 }
 
 export interface GameState {

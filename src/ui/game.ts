@@ -117,7 +117,12 @@ export class Game {
     checkMapMatches(state, map);
     this.map = map;
     this.state = state;
-    state.runId ??= newRunId(state.settings.seed);
+    // runs get their id when they start, so only a migrated save arrives without one. One that is
+    // already over (a v1 game whose nation had fallen, ended by migrateState) is recorded below, under
+    // an id taken from the run so that loading the same old save again replaces its entry.
+    const over = state.gameOver;
+    const unrecorded = !state.runId && !!over;
+    state.runId ??= over ? `legacy-${state.settings.seed}-${state.player}-${over.player?.diedDay ?? over.day}` : newRunId(state.settings.seed);
     this.syncNotices();
     markDirty();
     invalidateMods();
@@ -126,6 +131,10 @@ export class Game {
     this.selectedProvince = state.player >= 0 ? state.nations[state.player].capital : -1;
     this.selectedDivs.clear();
     this.mapVersion++;
+    if (unrecorded) {
+      this.wasOver = false; // afterTicks records a run the first time it sees it over
+      this.afterTicks();
+    }
     this.startLoop();
     this.notify();
   }

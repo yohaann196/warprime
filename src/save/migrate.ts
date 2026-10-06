@@ -2,6 +2,7 @@
 // old ones step by step, then run every subsystem's default filler. Pure and DOM-free (no IndexedDB).
 import { TECH_BY_ID } from '../data/techs';
 import { ensureDefaults } from '../sim/defaults';
+import { checkEnd } from '../sim/leaderboard';
 import type { GeneratedMap } from '../sim/worldgen/geometry';
 import { canResearch } from '../sim/tech';
 import type { GameState } from '../sim/state';
@@ -47,8 +48,9 @@ function v1to2(s: Loose): void {
     delete n.yearsGolden;
     delete n.daysHegemon;
   }
-  // victories no longer end the game; a dead player gets a v2 'eliminated' ending on the next day.
-  // The leaderboard is seeded from the prosperity histories by ensureLeaderboardDefaults.
+  // victories no longer end the game; a dead player gets a v2 'eliminated' ending from checkEnd once
+  // migrateState has filled the defaults. The leaderboard is seeded from the prosperity histories by
+  // ensureLeaderboardDefaults.
   s.gameOver = null;
   dropInvalidResearch(s);
 }
@@ -93,6 +95,9 @@ export function migrateState(raw: unknown): GameState {
   const mapId = (state.settings as { mapId?: string }).mapId ?? 'random';
   if (!KNOWN_MAPS.has(mapId)) throw new SaveError('unknownMap', `This save uses a map this version does not have (${mapId}).`);
   ensureDefaults(state);
+  // build an ending the save is owed (a v1 game whose nation had fallen) now rather than on the next
+  // day: a loaded game is paused, and a fallen player has no controls to advance it. A no-op otherwise.
+  checkEnd(state);
   return state;
 }
 

@@ -1,8 +1,8 @@
 // The end of the game: why it ended, the player's final record, both leaderboards and who led when.
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { yearAt, yearsFmt } from '../sim/leaderboard';
-import { dateString, type EndCause, type GameState, type PlayerFinal } from '../sim/state';
+import { yearAt, yearsFmt, yearsShort } from '../sim/leaderboard';
+import { dateString, DAYS_PER_YEAR, type EndCause, type GameState, type PlayerFinal } from '../sim/state';
 import { Flag, fmt } from './components';
 import type { Game } from './game';
 import { AllTimeStandings, CurrentStandings, DecadeGrid, LeaderTimeline, liveAllTime, liveStandings, ProsperityChart } from './Leaderboard';
@@ -69,15 +69,15 @@ function PlayerCard({ s, pf, cause }: { s: GameState; pf: PlayerFinal; cause: En
       <div class="end-stats">
         {stat('Final rank', pf.survived ? `#${pf.currentRank} of ${pf.aliveCount}` : 'Fallen')}
         {stat('All-time', `#${pf.allTimeRank} of ${pf.nationCount}`)}
-        {stat('Years at #1', (pf.daysAtTop / 365).toFixed(1), pf.reigns ? `${pf.reigns} reign(s), longest ${yearsFmt(pf.longestReign)}` : 'Never held the crown')}
-        {stat('Years in top 3', (pf.daysTop3 / 365).toFixed(1))}
+        {stat('Years at #1', yearsShort(pf.daysAtTop), pf.reigns ? `${pf.reigns} reign(s), longest ${yearsFmt(pf.longestReign)}` : 'Never held the crown')}
+        {stat('Years in top 3', yearsShort(pf.daysTop3))}
         {stat('Best rank', pf.bestRank ? `#${pf.bestRank}` : '—')}
         {stat('Peak prosperity', pf.peakProsperity.toFixed(1), `In ${yearAt(s, pf.peakProsperityDay)}`)}
         {stat('Provinces', `${pf.startProvinces} → ${pf.provinces}`, `Peak: ${pf.peakProvinces}`)}
         {stat('Peak GDP', count(pf.peakGdp))}
         {stat('Technologies', pf.techs)}
         {stat('Clicks', count(pf.clicks))}
-        {stat('Years alive', pf.yearsAlive.toFixed(0))}
+        {stat('Years alive', yearsShort(pf.yearsAlive * DAYS_PER_YEAR))}
         {stat('Rank points', count(pf.rankPoints))}
       </div>
     </div>
@@ -99,10 +99,12 @@ export function EndScreen({ g, onNew, onHallOfFame, climate }: { g: Game; onNew:
   const cause = over.worldEnd?.cause ?? over.cause;
   const h = header(s, cause, over.player);
   const fell = over.worldEnd && over.player && !over.player.survived;
-  // a spectator saw the world end: the live boards are the final ones
+  // the world ended after the player fell: the live boards are the final ones, and the crown and the
+  // climate damage are those of the world's end, not of the day the player fell
   const current = over.worldEnd ? liveStandings(s) : over.current;
   const allTime = over.worldEnd ? liveAllTime(s) : over.allTime;
-  const crownId = over.worldEnd ? s.leaderboard.crown : over.crown;
+  const crownId = over.worldEnd ? over.worldEnd.crown : over.crown;
+  const climateDamage = over.worldEnd ? over.worldEnd.climateDamage : over.climateDamage;
   const crown = crownId >= 0 ? s.nations[crownId] : null;
   return (
     <div class="modal-back">
@@ -117,7 +119,7 @@ export function EndScreen({ g, onNew, onHallOfFame, climate }: { g: Game; onNew:
           {crown && (
             <p class="small">
               👑 <Flag nation={crown} size={14} /> <b>{crown.name}</b> held the crown at the end, {dateString({ ...s, day: over.worldEnd?.day ?? over.day })}.
-              {over.climateDamage !== null && <span class="muted"> Earth damage: {Math.round(over.climateDamage)}%.</span>}
+              {climateDamage !== null && <span class="muted"> Earth damage: {Math.round(climateDamage)}%.</span>}
             </p>
           )}
         </header>
@@ -125,7 +127,7 @@ export function EndScreen({ g, onNew, onHallOfFame, climate }: { g: Game; onNew:
         <div class="end-boards">
           <section>
             <h3>Final standings</h3>
-            {current.length ? <CurrentStandings s={s} rows={current} live={false} /> : <div class="muted small">No nation survived.</div>}
+            {current.length ? <CurrentStandings s={s} rows={current} live={false} crown={crownId} /> : <div class="muted small">No nation survived.</div>}
           </section>
           <section>
             <h3>All-time leaderboard</h3>

@@ -146,10 +146,17 @@ export function allTimeRanking(state: GameState): number[] {
     );
 }
 
-/** "3 months", "1.5 years", "120 years". */
+/** "0 months", "3 months", "1.5 years", "120 years". Any time at all reads as at least a month. */
+/** Compact years for tables: "0", "0.4", "7.5", "112". */
+export function yearsShort(days: number): string {
+  if (days <= 0) return '0';
+  const y = days / DAYS_PER_YEAR;
+  return y >= 10 ? String(Math.round(y)) : (Math.round(y * 10) / 10).toString();
+}
+
 export function yearsFmt(days: number): string {
   if (days < DAYS_PER_YEAR) {
-    const m = Math.max(1, Math.round(days / 30));
+    const m = days > 0 ? Math.max(1, Math.round(days / 30)) : 0;
     return `${m} month${m === 1 ? '' : 's'}`;
   }
   const y = days / DAYS_PER_YEAR;
@@ -311,7 +318,9 @@ function resetLeaderboard(state: GameState, order: number[]): void {
 export function sampleLeaderboard(state: GameState, opts: { reset?: boolean; final?: boolean } = {}): void {
   const order = ranking(state).map((r) => r.nation);
   if (opts.reset) return resetLeaderboard(state, order);
-  ensureRecords(state);
+  // deaths first: their headlines read the rank and crown the fallen held, and the all-time
+  // lifespan tiebreak must already see them
+  markDeaths(state);
   const lb = state.leaderboard;
   const day = state.day;
   if (day <= lb.lastSampleDay && lb.order.length) return; // already sampled today
@@ -416,11 +425,17 @@ function playerNotices(
 
 // ------------------------------------------------------------------ migration of old saves
 
+/** v1 kept at most this many history points per nation, dropping the oldest. */
+const V1_HISTORY_MAX = 400;
+
 /**
- * Rebuilds the boards of a save that had none (v1) from the nations' prosperity histories. The
- * history samples are not monthly, so each interval is credited to the sample that opens it and the
- * gap before the first surviving sample goes to that sample's leader: sum(daysAtTop) still equals
- * lastSampleDay. Crown changes are taken from the raw samples.
+ * Rebuilds the boards of a save that had none (v1) from the nations' prosperity histories. v1
+ * sampled the living nations every 90 days and dropped a history's oldest points past
+ * V1_HISTORY_MAX, so in a late save the survivors have lost their early samples while nations that
+ * died early kept theirs. Only the days every history still covers are ranked: the gap before the
+ * first of them goes to that sample's ranking, and each interval to the ranking that opens it,
+ * without the nations that are gone by its end (no one is credited past their last sample).
+ * sum(daysAtTop) still equals lastSampleDay. Crown changes are taken from the raw samples.
  */
 function seedFromHistory(state: GameState): void {
   const lb = emptyLeaderboard(0, state.settings.startYear);
@@ -431,33 +446,39 @@ function seedFromHistory(state: GameState): void {
     r.deaths = 0;
   }
   const samples = new Map<number, { nation: number; prosperity: number; gdp: number }[]>();
-  for (const n of state.nations)
-    for (const h of n.history) {
-      let arr = samples.get(h.day);
-      if (!arr) samples.set(h.day, (arr = []));
-      arr.push({ nation: n.id, prosperity: h.prosperity, gdp: h.gdp });
+  const add = (day: number, nation: number, prosperity: number, gdp: number) => {
+    const r = lb.records[nation];
+    if (prosperity > r.peakProsperity) {
+      r.peakProsperity = prosperity;
+      r.peakProsperityDay = day;
     }
+    r.peakGdp = Math.max(r.peakGdp, gdp);
+    let arr = samples.get(day);
+    if (!arr) samples.set(day, (arr = []));
+    arr.push({ nation, prosperity, gdp });
+  };
+  let complete = 0; // the first day no history has lost
+  for (const n of state.nations) {
+    for (const h of n.history) add(h.day, n.id, h.prosperity, h.gdp);
+    if (n.history.length >= V1_HISTORY_MAX) complete = Math.max(complete, n.history[0].day);
+  }
+  // a dead nation's last sample is the last day it is known to have lived (its diedDay below)
+  const lastSeen = state.nations.map((n) => (n.alive ? Infinity : (n.history[n.history.length - 1]?.day ?? 0)));
   // the live prosperity is the latest monthly ranking
   const now = Math.floor(state.day / SAMPLE_DAYS) * SAMPLE_DAYS;
-  samples.set(
-    now,
-    state.nations.filter((n) => n.alive).map((n) => ({ nation: n.id, prosperity: n.prosperity, gdp: n.gdp })),
-  );
-  const days = [...samples.keys()].filter((d) => d <= now).sort((a, b) => a - b);
+  samples.delete(now);
+  for (const n of state.nations) if (n.alive) add(now, n.id, n.prosperity, n.gdp);
+  const days = [...samples.keys()].filter((d) => d >= complete && d <= now).sort((a, b) => a - b);
   let prevOrder: number[] | null = null;
   let prevDay = 0;
   for (const d of days) {
     const entries = samples.get(d)!.sort((a, b) => b.prosperity - a.prosperity || a.nation - b.nation);
     const order = entries.map((e) => e.nation);
-    credit(state, prevOrder ?? order, prevDay, d, true);
+    const held = (prevOrder ?? order).filter((id) => lastSeen[id] >= d);
+    credit(state, held.length ? held : order, prevDay, d, true);
     entries.forEach((e, i) => {
       const r = lb.records[e.nation];
       if (r.bestRank === 0 || i + 1 < r.bestRank) r.bestRank = i + 1;
-      if (e.prosperity > r.peakProsperity) {
-        r.peakProsperity = e.prosperity;
-        r.peakProsperityDay = d;
-      }
-      r.peakGdp = Math.max(r.peakGdp, e.gdp);
     });
     if (order.length && order[0] !== lb.crown) takeCrown(state, order[0], prevOrder ? d : 0);
     prevOrder = order;
@@ -474,7 +495,7 @@ function seedFromHistory(state: GameState): void {
   for (const n of state.nations) {
     if (n.alive) continue;
     const r = lb.records[n.id];
-    r.diedDay = n.history.length ? n.history[n.history.length - 1].day : 0;
+    r.diedDay = lastSeen[n.id];
     r.deaths = 1;
     const killer = state.provinces[n.capital]?.owner ?? -1;
     r.eliminatedBy = killer !== n.id ? killer : -1;
@@ -518,6 +539,7 @@ function worldEndCause(state: GameState): Exclude<EndCause, 'eliminated'> | null
 /**
  * Runs at the very end of every day. Priority: climate collapse, then the player's elimination
  * (skipped when nobody plays), then the year limit. This is the only code that sets state.gameOver.
+ * Migration also runs it once, so an old save whose player had fallen gets its ending on load.
  */
 export function checkEnd(state: GameState): void {
   markDeaths(state);
@@ -528,15 +550,30 @@ export function checkEnd(state: GameState): void {
     if (over.cause === 'eliminated' && world && !over.worldEnd) {
       computeProsperity(state);
       sampleLeaderboard(state, { final: true });
-      over.worldEnd = { cause: world, day: state.day };
-      state.spectating = false;
+      endWorld(state, world);
       notice(state, world === 'climate_collapse' ? 'Earth has become uninhabitable.' : `The year ${yearOf(state)} has arrived. History ends here.`, 'info', []);
     }
     return;
   }
   if (world === 'climate_collapse') return endGame(state, world);
-  if (state.player >= 0 && !state.nations[state.player].alive) return endGame(state, 'eliminated');
+  if (state.player >= 0 && !state.nations[state.player].alive) {
+    endGame(state, 'eliminated');
+    // the player fell on the day the world ended: there is nothing left to spectate
+    if (world) endWorld(state, world);
+    return;
+  }
   if (world) endGame(state, world);
+}
+
+/** Records the world's own end after the player's elimination: its day, final crown and climate damage. */
+function endWorld(state: GameState, cause: Exclude<EndCause, 'eliminated'>): void {
+  state.gameOver!.worldEnd = {
+    cause,
+    day: state.day,
+    crown: state.leaderboard.crown,
+    climateDamage: state.climate ? state.climate.damage : null,
+  };
+  state.spectating = false;
 }
 
 function endGame(state: GameState, cause: EndCause): void {
