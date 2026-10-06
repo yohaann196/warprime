@@ -5,13 +5,14 @@ import { UNITS } from '../../data/units';
 import { mod, mult } from '../modifiers';
 import { hasTech, ownedProvinces, puppetsOf, overlordOf, nationPop } from '../query';
 import { clickValue } from '../clicks';
+import { privateImport } from './market';
 import type { BuildingId, GameState, Good, Nation, Province } from '../state';
 
-const FOOD_PER_POP = 0.016; // per thousand per day
+export const FOOD_PER_POP = 0.0125; // per thousand per day
 const CONSUMER_PER_POP = 0.0018;
 const SERVICES_PER_POP = 0.06;
 
-const FOOD_TERRAIN: Record<string, number> = { plains: 1.2, forest: 0.8, hills: 0.8, jungle: 0.9, desert: 0.5, tundra: 0.5, mountains: 0.4 };
+export const FOOD_TERRAIN: Record<string, number> = { plains: 1.2, forest: 0.8, hills: 0.8, jungle: 0.9, desert: 0.5, tundra: 0.5, mountains: 0.4 };
 const CAPACITY: Record<string, number> = { plains: 900, forest: 600, hills: 500, jungle: 500, desert: 220, tundra: 200, mountains: 260 };
 
 const FACTORY_ORDER: BuildingId[] = ['refinery', 'steel_mill', 'munitions_plant', 'consumer_factory', 'vehicle_plant', 'electronics_plant'];
@@ -168,15 +169,21 @@ export function nationEconomyDay(state: GameState, n: Nation): void {
   n.research = research;
 
   // --- consumption ---
+  // households first use domestic stock, then import privately (up to a share of demand)
   const foodNeed = totalPop * FOOD_PER_POP;
   const foodHave = Math.max(0, n.stock.food);
-  consume('food', Math.min(foodNeed, foodHave));
-  n.foodShortage = foodHave < foodNeed * 0.98;
+  const foodUsed = Math.min(foodNeed, foodHave);
+  consume('food', foodUsed);
+  const foodImports = Math.min(foodNeed - foodUsed, foodNeed * 0.35);
+  privateImport('food', foodImports);
+  n.foodShortage = foodUsed + foodImports < foodNeed * 0.98;
   const consNeed = totalPop * CONSUMER_PER_POP * (1 + 0.3 * n.era);
   const consHave = Math.max(0, n.stock.consumer);
   const consUsed = Math.min(consNeed, consHave);
   consume('consumer', consUsed);
-  n.consumerSat = consNeed > 0 ? consUsed / consNeed : 1;
+  const consImports = Math.min(consNeed - consUsed, consNeed * 0.45);
+  privateImport('consumer', consImports);
+  n.consumerSat = consNeed > 0 ? (consUsed + consImports) / consNeed : 1;
 
   // --- automation clicks ---
   n.clicks.autoRate = Math.max(0, mod(state, n.id, 'autoClick') + adminLevels * 3);

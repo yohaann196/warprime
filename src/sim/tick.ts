@@ -62,6 +62,18 @@ export function advanceDay(state: GameState): void {
   if (state.day % 90 === 0) recordHistory(state);
 }
 
+/** Fills derived values (GDP, logistics, research, prosperity) for a fresh world without advancing time. */
+export function warmUp(state: GameState): void {
+  markDirty();
+  invalidateMods();
+  for (const n of state.nations) {
+    if (!n.alive) continue;
+    nationEconomyDay(state, n);
+    n.money = Math.max(n.money, 0);
+  }
+  computeProsperity(state);
+}
+
 /** Cools click heat in real time while paused, so clicking stays meaningful on pause. */
 export function coolWhilePaused(state: GameState): void {
   if (state.player >= 0) coolClicks(state.nations[state.player]);

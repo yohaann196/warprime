@@ -12,6 +12,7 @@ import {
 import { generateMap, type GeneratedMap } from './geometry';
 import { cityName, nationName, seaName } from './names';
 import { BASE_PRICES } from '../../data/buildings';
+import { FOOD_PER_POP, FOOD_TERRAIN } from '../economy/production';
 
 export const SAVE_VERSION = 1;
 
@@ -165,7 +166,7 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
       money: 600,
       debt: 0,
       stock: { ...emptyStock(), food: 60, wood: 40, iron: 30, coal: 30, steel: 20, munitions: 60, consumer: 20 },
-      reserve: { food: 40, wood: 20, iron: 20, coal: 20, steel: 20, munitions: 80, consumer: 10, fuel: 20, vehicles: 10, oil: 10, electronics: 5, uranium: 15, rare: 5 },
+      reserve: { food: 30, wood: 20, iron: 20, coal: 20, steel: 20, munitions: 60, consumer: 0, fuel: 20, vehicles: 10, oil: 10, electronics: 5, uranium: 15, rare: 5 },
       autoTrade: true,
       taxRate: 0.25,
       econSystem: rng.pick(AI_SYSTEMS),
@@ -239,6 +240,14 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
     const steelSite = owned.find((p) => p.isCapital);
     if (steelSite && owned.length > 4) steelSite.buildings.munitions_plant = 1;
     n.manpower = Math.round(owned.reduce((s, p) => s + p.pop, 0) * 0.01);
+    // enough farms to roughly feed the population (barren nations will still need imports)
+    const need = owned.reduce((s, p) => s + p.pop, 0) * FOOD_PER_POP * 1.05;
+    const farmable = owned.filter((p) => ['plains', 'forest', 'hills', 'jungle'].includes(p.terrain)).sort((a, b) => (FOOD_TERRAIN[b.terrain] ?? 0) * b.pop - (FOOD_TERRAIN[a.terrain] ?? 0) * a.pop);
+    const made = () => owned.reduce((s, p) => s + (p.buildings.farm ?? 0) * 3.5 * (FOOD_TERRAIN[p.terrain] ?? 0.6) * 0.9, 0);
+    for (let guard = 0; guard < 60 && farmable.length && made() < need; guard++) {
+      const p = farmable[guard % farmable.length];
+      if ((p.buildings.farm ?? 0) < 3) p.buildings.farm = (p.buildings.farm ?? 0) + 1;
+    }
   }
 
   const N = nations.length;

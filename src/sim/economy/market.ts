@@ -32,6 +32,11 @@ export function stateShare(state: GameState, n: Nation): number {
   return Math.max(0.1, Math.min(0.6, 0.15 + sys + mod(state, n.id, 'trade') * 0.12));
 }
 
+/** Imports bought by households (not the treasury). They only move world prices. */
+export function privateImport(g: Good, amount: number): void {
+  if (amount > 0) flow.demand[g] += amount;
+}
+
 export function sellPrice(state: GameState, n: Nation, g: Good): number {
   return state.prices[g] * stateShare(state, n);
 }
