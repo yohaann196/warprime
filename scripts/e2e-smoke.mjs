@@ -1,11 +1,30 @@
 // End-to-end smoke test: drives the real app in Chromium and saves screenshots.
-// Usage: start `npm run dev`, then `node scripts/e2e-smoke.mjs [outDir] [baseUrl]`.
+// Usage:
+//   node scripts/e2e-smoke.mjs [outDir] [url]                  (against a running dev server)
+//   node scripts/e2e-smoke.mjs out --serve dist --base /warprime/  (serves the production build like GitHub Pages)
+//   node scripts/e2e-smoke.mjs out https://.../warprime/ --scenario boot --retries 6   (live smoke)
 // Set CHROMIUM_PATH to use a preinstalled browser.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { serveStatic } from './serve-static.mjs';
 
-const out = process.argv[2] ?? 'screenshots';
-const url = process.argv[3] ?? 'http://localhost:5173/';
+const argv = process.argv.slice(2);
+const flag = (name, fallback) => {
+  const i = argv.indexOf(`--${name}`);
+  return i >= 0 ? argv[i + 1] : fallback;
+};
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--')));
+const out = positional[0] ?? 'screenshots';
+let url = positional[1] ?? 'http://localhost:5173/';
+const scenario = flag('scenario', 'full');
+const retries = Number(flag('retries', '0'));
+let server = null;
+if (flag('serve')) {
+  const s = await serveStatic(flag('serve'), flag('base', '/warprime/'));
+  server = s.server;
+  url = s.url;
+  console.log(`serving ${flag('serve')} at ${url}`);
+}
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const errors = [];
@@ -129,8 +148,26 @@ async function diplomacyFlow(page, shot, dismissEvents) {
   }
 }
 
-await run({ width: 1440, height: 900 }, 'desktop');
-await run({ width: 390, height: 844 }, 'mobile');
+async function boot() {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  page.on('pageerror', (e) => errors.push(`[boot] pageerror: ${e.message}`));
+  for (let attempt = 0; ; attempt++) {
+    const res = await page.goto(url).catch((e) => ({ ok: () => false, status: () => String(e) }));
+    if (res && res.ok()) break;
+    if (attempt >= retries) throw new Error(`could not load ${url}: ${res?.status?.()}`);
+    await page.waitForTimeout(10_000);
+  }
+  await page.waitForSelector('text=New game', { timeout: 30_000 });
+  await page.screenshot({ path: `${out}/boot-menu.png` });
+  await page.close();
+}
+
+if (scenario === 'boot') await boot();
+else {
+  await run({ width: 1440, height: 900 }, 'desktop');
+  await run({ width: 390, height: 844 }, 'mobile');
+}
 await browser.close();
+server?.close();
 console.log(errors.length ? errors.join('\n') : 'no errors');
 process.exit(errors.length ? 1 : 0);

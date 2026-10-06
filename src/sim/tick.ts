@@ -16,9 +16,11 @@ import { checkVictory, computeProsperity, recordHistory } from './prosperity';
 import { markDirty } from './query';
 import { researchDay, updateEra } from './tech';
 import type { GameState } from './state';
+import { PROFILE, profileLap, profileStart } from './profile';
 
 export function advanceDay(state: GameState): void {
   if (state.gameOver) return;
+  profileStart();
   markDirty();
   invalidateMods();
   if (state.day === 0) computeProsperity(state);
@@ -36,21 +38,26 @@ export function advanceDay(state: GameState): void {
     nukeProgramDay(state, n.id);
     coolClicks(n);
   }
+  profileLap('economy');
   for (const n of state.nations) autoTrade(state, n);
   contractsDay(state);
   updatePrices(state);
   resetTradeVolume(state);
+  profileLap('market');
 
   movementDay(state);
   combatDay(state);
   siegeDay(state);
   readinessDay(state);
+  profileLap('military');
 
   warsDay(state);
   opinionDay(state);
   puppetsDay(state);
   eventsDay(state);
+  profileLap('diplomacy');
   runAI(state);
+  profileLap('ai');
 
   for (const n of state.nations) checkAlive(state, n.id);
   state.day++;
@@ -60,6 +67,8 @@ export function advanceDay(state: GameState): void {
     checkVictory(state);
   }
   if (state.day % 90 === 0) recordHistory(state);
+  profileLap('monthly');
+  if (PROFILE.now) PROFILE.days++;
 }
 
 /** Fills derived values (GDP, logistics, research, prosperity) for a fresh world without advancing time. */

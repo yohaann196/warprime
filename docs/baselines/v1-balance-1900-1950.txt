@@ -1,0 +1,126 @@
+### base-beginner-1
+== 1925  alive 18  wars started 0 (active 0)  divisions 111  87s
+   Ulelavia     P  75.6  prov  23  pop 7.5M  gdp 1528  net 116/d  $ 92307  hap 70 stab 73  era 1  war_economy
+   Coristan     P  74.0  prov  20  pop 9.6M  gdp 1608  net 136/d  $ 80264  hap 69 stab 72  era 1  war_economy
+   Athomark     P  73.0  prov  41  pop 14.2M  gdp 1736  net 18/d  $ 46490  hap 76 stab 85  era 1  planned
+   Torulstan    P  70.7  prov  29  pop 15.0M  gdp 1633  net 101/d  $ 164447  hap 90 stab 87  era 1  cooperative
+   Valadis      P  70.2  prov  28  pop 12.0M  gdp 1541  net 142/d  $ 30759  hap 69 stab 84  era 1  war_economy
+== 1950  alive 18  wars started 0 (active 0)  divisions 111  192s
+   Torulstan    P  81.0  prov  29  pop 24.2M  gdp 3575  net 225/d  $ 968624  hap 93 stab 94  era 2  cooperative
+   Coristan     P  78.0  prov  20  pop 13.9M  gdp 3058  net 455/d  $ 374738  hap 73 stab 80  era 2  war_economy
+   Miria        P  76.6  prov  21  pop 17.0M  gdp 3288  net 185/d  $ 526931  hap 86 stab 91  era 2  cooperative
+   Ulelavia     P  76.5  prov  23  pop 10.8M  gdp 2566  net 318/d  $ 318827  hap 73 stab 80  era 2  war_economy
+   Valadis      P  76.1  prov  28  pop 17.5M  gdp 3121  net 215/d  $ 568035  hap 73 stab 90  era 2  war_economy
+No winner yet
+### base-beginner-2
+== 1925  alive 17  wars started 11 (active 2)  divisions 143  88s
+   Galyrstan    P  82.0  prov  50  pop 22.5M  gdp 3072  net 478/d  $ 90107  hap 67 stab 67  era 1  war_economy
+   Norland      P  73.5  prov  35  pop 17.2M  gdp 2118  net 92/d  $ 105987  hap 75 stab 78  era 1  planned
+   Wesoria      P  64.4  prov  21  pop 6.8M  gdp 1065  net 44/d  $ 55449  hap 75 stab 78  era 1  planned
+   Galstan      P  63.5  prov  30  pop 13.5M  gdp 1571  net 247/d  $ 98772  hap 82 stab 82  era 1  mixed
+   Draetmark    P  61.1  prov  14  pop 5.6M  gdp 859  net 19/d  $ 38307  hap 84 stab 87  era 1  mixed
+== 1950  alive 16  wars started 16 (active 0)  divisions 152  194s
+   Galyrstan    P  83.9  prov  56  pop 34.3M  gdp 6704  net 516/d  $ 1570368  hap 73 stab 85  era 2  war_economy
+   Norland      P  73.7  prov  35  pop 26.7M  gdp 4567  net 192/d  $ 1056211  hap 78 stab 93  era 2  planned
+   Galstan      P  65.8  prov  28  pop 19.6M  gdp 3374  net 1277/d  $ 662405  hap 87 stab 98  era 2  mixed
+   Ostica       P  64.8  prov  24  pop 20.3M  gdp 3063  net -841/d  $ 648714  hap 87 stab 95  era 2  mixed
+   Atharia      P  62.6  prov  30  pop 14.6M  gdp 2472  net -113/d  $ 348022  hap 83 stab 81  era 2  free_market
+No winner yet
+### base-beginner-3
+== 1925  alive 17  wars started 3 (active 0)  divisions 119  88s
+   Kalaria      P  81.3  prov  19  pop 13.2M  gdp 2408  net 100/d  $ 243842  hap 88 stab 81  era 1  mercantilism
+   Vesica       P  74.2  prov  37  pop 11.8M  gdp 1848  net 74/d  $ 12606  hap 70 stab 76  era 1  war_economy
+   Veseth       P  73.2  prov  10  pop 6.5M  gdp 1239  net 81/d  $ 82762  hap 75 stab 84  era 1  planned
+   Yravania     P  72.3  prov  22  pop 10.0M  gdp 1707  net 167/d  $ 143911  hap 78 stab 81  era 1  mercantilism
+   Elonia       P  68.3  prov  36  pop 11.3M  gdp 1441  net 140/d  $ 21239  hap 84 stab 87  era 1  mixed
+== 1950  alive 17  wars started 3 (active 0)  divisions 119  193s
+   Kalaria      P  87.6  prov  19  pop 20.7M  gdp 5305  net 705/d  $ 1183779  hap 83 stab 85  era 2  mercantilism
+   Yravania     P  81.6  prov  22  pop 16.4M  gdp 4142  net 212/d  $ 602535  hap 83 stab 85  era 2  mercantilism
+   Vesica       P  75.4  prov  37  pop 16.8M  gdp 3623  net 174/d  $ 285250  hap 73 stab 85  era 2  war_economy
+   Taletia      P  74.2  prov  19  pop 12.2M  gdp 3251  net 333/d  $ 699069  hap 83 stab 77  era 2  free_market
+   Veseth       P  72.3  prov  10  pop 10.0M  gdp 2241  net -3/d  $ 344215  hap 78 stab 87  era 2  planned
+No winner yet
+### base-demonic-1
+== 1925  alive 15  wars started 26 (active 1)  divisions 200  87s
+   Torulstan    P  74.3  prov  34  pop 17.6M  gdp 3674  net 400/d  $ 359702  hap 90 stab 87  era 1  cooperative
+   Casgard      P  73.0  prov  11  pop 5.6M  gdp 2026  net 94/d  $ 167344  hap 70 stab 73  era 1  war_economy
+   Valadis      P  71.4  prov  37  pop 17.1M  gdp 3594  net 114/d  $ 193116  hap 70 stab 82  era 1  war_economy
+   Selisavia    P  68.9  prov   3  pop 3.9M  gdp 1401  net 4/d  $ 130195  hap 80 stab 70  era 1  free_market
+   Miria        P  66.5  prov  26  pop 11.9M  gdp 2561  net 71/d  $ 111641  hap 97 stab 87  era 1  cooperative
+== 1950  alive 14  wars started 29 (active 1)  divisions 195  192s
+   Valadis      P  78.5  prov  37  pop 24.1M  gdp 7563  net 515/d  $ 1578323  hap 73 stab 90  era 2  war_economy
+   Yraruna      P  77.3  prov  51  pop 22.5M  gdp 6575  net 226/d  $ 895972  hap 73 stab 80  era 2  war_economy
+   Torulstan    P  76.1  prov  34  pop 27.6M  gdp 6907  net 439/d  $ 1429722  hap 93 stab 94  era 2  cooperative
+   Miria        P  74.7  prov  26  pop 20.7M  gdp 6223  net 199/d  $ 781438  hap 93 stab 94  era 2  cooperative
+   Casgard      P  73.5  prov  11  pop 8.0M  gdp 3399  net 20/d  $ 491802  hap 73 stab 80  era 2  war_economy
+No winner yet
+### base-demonic-2
+== 1925  alive 16  wars started 23 (active 0)  divisions 216  98s
+   Galyrstan    P  80.1  prov  54  pop 22.4M  gdp 5024  net 119/d  $ 283176  hap 70 stab 73  era 1  war_economy
+   Norland      P  76.0  prov  33  pop 16.2M  gdp 3775  net -44/d  $ 293840  hap 75 stab 84  era 1  planned
+   Galstan      P  67.3  prov  33  pop 15.0M  gdp 3279  net 156/d  $ 207697  hap 84 stab 87  era 1  mixed
+   Ostica       P  64.9  prov  21  pop 12.0M  gdp 2421  net 107/d  $ 102992  hap 83 stab 87  era 1  mixed
+   Wesoria      P  61.9  prov  21  pop 7.0M  gdp 1794  net 87/d  $ 154220  hap 67 stab 75  era 1  planned
+== 1950  alive 14  wars started 35 (active 0)  divisions 207  196s
+   Norland      P  88.2  prov  33  pop 24.7M  gdp 8485  net 636/d  $ 1419745  hap 78 stab 93  era 2  planned
+   Goreth       P  80.2  prov  35  pop 25.2M  gdp 7800  net 260/d  $ 1359889  hap 73 stab 80  era 2  war_economy
+   Zenadmor     P  77.9  prov  34  pop 29.0M  gdp 8219  net 380/d  $ 1221888  hap 83 stab 81  era 2  free_market
+   Galstan      P  77.7  prov  33  pop 23.7M  gdp 6725  net 238/d  $ 1272278  hap 87 stab 95  era 2  mixed
+   Dunulonia    P  72.8  prov  42  pop 26.3M  gdp 6668  net 415/d  $ 2196976  hap 83 stab 87  era 2  free_market
+No winner yet
+### base-demonic-3
+== 1925  alive 12  wars started 53 (active 0)  divisions 200  89s
+   Kalaria      P  73.9  prov  44  pop 21.4M  gdp 4365  net 66/d  $ 296684  hap 80 stab 77  era 1  mercantilism
+   Taletia      P  72.7  prov  55  pop 24.4M  gdp 4990  net 92/d  $ 310503  hap 80 stab 69  era 1  free_market
+   Veseth       P  71.5  prov  10  pop 6.0M  gdp 1889  net 48/d  $ 172684  hap 75 stab 81  era 1  planned
+   Yravania     P  65.9  prov  24  pop 11.9M  gdp 2995  net -536/d  $ 486018  hap 82 stab 77  era 1  mercantilism
+   Osmor        P  63.7  prov  19  pop 12.0M  gdp 2885  net 120/d  $ 235461  hap 80 stab 70  era 1  free_market
+== 1950  alive 12  wars started 91 (active 2)  divisions 215  191s
+   Wesemark     P  81.2  prov  59  pop 43.0M  gdp 12201  net 211/d  $ 2189457  hap 83 stab 85  era 2  mercantilism
+   Yravania     P  70.1  prov  36  pop 27.7M  gdp 9529  net 325/d  $ 1851731  hap 82 stab 78  era 2  mercantilism
+   Taletia      P  67.2  prov  57  pop 37.5M  gdp 9593  net -924/d  $ 1456513  hap 83 stab 72  era 2  free_market
+   Kalaria      P  66.4  prov  51  pop 38.1M  gdp 10046  net -68/d  $ 2026654  hap 79 stab 78  era 2  mercantilism
+   Veseth       P  65.8  prov  10  pop 9.6M  gdp 3514  net -357/d  $ 519397  hap 78 stab 87  era 2  planned
+No winner yet
+### base-realistic-1
+== 1925  alive 16  wars started 23 (active 0)  divisions 179  92s
+   Coristan     P  78.9  prov  35  pop 18.0M  gdp 3890  net 42/d  $ 230135  hap 70 stab 73  era 1  war_economy
+   Miria        P  66.8  prov  39  pop 19.2M  gdp 2841  net 96/d  $ 117299  hap 90 stab 85  era 1  cooperative
+   Selisavia    P  65.7  prov   3  pop 3.8M  gdp 1039  net -29/d  $ 86075  hap 80 stab 70  era 1  free_market
+   Casgard      P  63.4  prov  11  pop 5.5M  gdp 1256  net 40/d  $ 56426  hap 70 stab 73  era 1  war_economy
+   Athomark     P  62.3  prov  40  pop 14.1M  gdp 2268  net 107/d  $ 96627  hap 73 stab 82  era 1  planned
+== 1950  alive 15  wars started 31 (active 0)  divisions 173  195s
+   Coristan     P  88.4  prov  43  pop 33.7M  gdp 9595  net 424/d  $ 1634839  hap 73 stab 80  era 2  war_economy
+   Miria        P  70.8  prov  36  pop 29.0M  gdp 6107  net 314/d  $ 822161  hap 100 stab 91  era 2  cooperative
+   Casgard      P  68.4  prov  11  pop 7.7M  gdp 2360  net 60/d  $ 281375  hap 73 stab 80  era 2  war_economy
+   Athomark     P  68.1  prov  43  pop 24.2M  gdp 4893  net 88/d  $ 1001035  hap 78 stab 93  era 2  planned
+   Yraruna      P  65.2  prov  42  pop 18.9M  gdp 4302  net 190/d  $ 473026  hap 73 stab 80  era 2  war_economy
+No winner yet
+### base-realistic-2
+== 1925  alive 17  wars started 23 (active 2)  divisions 194  93s
+   Galyrstan    P  75.9  prov  57  pop 30.9M  gdp 4696  net -601/d  $ 433372  hap 70 stab 70  era 1  war_economy
+   Norland      P  67.0  prov  33  pop 16.8M  gdp 2810  net 37/d  $ 162338  hap 75 stab 84  era 1  planned
+   Wesoria      P  62.7  prov  24  pop 8.6M  gdp 1749  net 117/d  $ 124981  hap 75 stab 77  era 1  planned
+   Selora       P  58.9  prov   5  pop 3.6M  gdp 814  net 76/d  $ 40909  hap 90 stab 82  era 1  cooperative
+   Ostica       P  57.3  prov  19  pop 9.6M  gdp 1434  net 111/d  $ 71183  hap 84 stab 87  era 1  mixed
+== 1950  alive 16  wars started 36 (active 0)  divisions 183  195s
+   Galyrstan    P  83.4  prov  61  pop 34.9M  gdp 8326  net 1458/d  $ 988017  hap 73 stab 80  era 2  war_economy
+   Norland      P  75.3  prov  35  pop 25.6M  gdp 5796  net 442/d  $ 1045983  hap 81 stab 93  era 2  planned
+   Goreth       P  74.0  prov  30  pop 20.0M  gdp 5247  net 216/d  $ 1102830  hap 73 stab 80  era 2  war_economy
+   Ostica       P  67.0  prov  19  pop 14.7M  gdp 3514  net 260/d  $ 626750  hap 87 stab 97  era 2  mixed
+   Wesoria      P  65.5  prov  23  pop 12.9M  gdp 3361  net 220/d  $ 458085  hap 78 stab 87  era 2  planned
+No winner yet
+### base-realistic-3
+== 1925  alive 15  wars started 15 (active 0)  divisions 149  87s
+   Kalaria      P  79.0  prov  31  pop 18.8M  gdp 3521  net 257/d  $ 271947  hap 80 stab 78  era 1  mercantilism
+   Veseth       P  73.7  prov  10  pop 6.4M  gdp 1511  net 64/d  $ 109678  hap 75 stab 74  era 1  planned
+   Yravania     P  71.6  prov  26  pop 12.6M  gdp 2639  net 85/d  $ 254244  hap 80 stab 72  era 1  mercantilism
+   Elonia       P  71.1  prov  37  pop 12.3M  gdp 2138  net 61/d  $ 113854  hap 84 stab 87  era 1  mixed
+   Taletia      P  70.3  prov  24  pop 12.2M  gdp 2578  net 219/d  $ 158003  hap 80 stab 70  era 1  free_market
+== 1950  alive 14  wars started 19 (active 0)  divisions 160  191s
+   Kalaria      P  81.6  prov  32  pop 29.4M  gdp 7720  net 537/d  $ 1470825  hap 83 stab 85  era 2  mercantilism
+   Taletia      P  78.8  prov  24  pop 18.5M  gdp 6089  net 426/d  $ 958510  hap 83 stab 77  era 2  free_market
+   Yravania     P  77.4  prov  26  pop 20.2M  gdp 5874  net 197/d  $ 800378  hap 83 stab 85  era 2  mercantilism
+   Vesica       P  76.8  prov  43  pop 24.3M  gdp 5833  net 253/d  $ 728162  hap 73 stab 85  era 2  war_economy
+   Osmor        P  72.5  prov  20  pop 19.3M  gdp 5216  net 265/d  $ 1132684  hap 83 stab 77  era 2  free_market
+No winner yet

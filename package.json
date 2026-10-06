@@ -3,16 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Warprime — a clicker grand-strategy game where the goal is the most prosperous nation.",
+  "description": "Warprime \u2014 a clicker grand-strategy game where the goal is the most prosperous nation.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run",
     "lint": "eslint src tests scripts",
     "sim": "tsx scripts/balance-sim.ts",
-    "e2e": "node scripts/e2e-smoke.mjs"
+    "e2e": "node scripts/e2e-smoke.mjs",
+    "perf": "tsx scripts/perf.ts"
   },
   "dependencies": {
     "d3-delaunay": "^6.0.4",
@@ -24,6 +25,7 @@
     "@eslint/js": "^10.0.1",
     "@preact/preset-vite": "^2.10.6",
     "@types/d3-delaunay": "^6.0.4",
+    "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "playwright": "^1.63.0",
     "tsx": "^4.23.15",
@@ -31,5 +33,8 @@
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

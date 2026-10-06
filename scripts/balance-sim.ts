@@ -1,13 +1,17 @@
-// Headless AI-only balance run. Usage: npm run sim -- [seed] [years] [difficulty]
+// Headless AI-only balance run. Usage: npm run sim -- [--seed 1] [--years 40] [--difficulty realistic] [--every 10]
 import { newGame } from '../src/sim/worldgen';
 import { defaultSettings } from '../src/sim/setup';
 import { advanceDay } from '../src/sim/tick';
 import { ownedProvinces, nationPop } from '../src/sim/query';
 import { yearOf, type Difficulty } from '../src/sim/state';
 
-const seed = Number(process.argv[2] ?? 1);
-const years = Number(process.argv[3] ?? 40);
-const difficulty = (process.argv[4] ?? 'realistic') as Difficulty;
+import { num, parseArgs, str } from './args';
+
+const args = parseArgs();
+const seed = num(args, 'seed', 1, 0);
+const years = num(args, 'years', 40, 1);
+const difficulty = str(args, 'difficulty', 'realistic', 2) as Difficulty;
+const every = num(args, 'every', 10);
 const { state } = newGame(defaultSettings(seed, difficulty));
 const seen = new Set<number>();
 const t0 = Date.now();
@@ -17,7 +21,7 @@ for (let y = 0; y < years && !state.gameOver; y++) {
     advanceDay(state);
     for (const w of state.wars) seen.add(w.id);
   }
-  if (y % 10 !== 9 && !state.gameOver) continue;
+  if (y % every !== every - 1 && !state.gameOver) continue;
   const alive = state.nations.filter((n) => n.alive);
   console.log(`== ${yearOf(state)}  alive ${alive.length}  wars started ${seen.size} (active ${state.wars.length})  divisions ${state.divisions.length}  ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   for (const n of [...alive].sort((a, b) => b.prosperity - a.prosperity).slice(0, 5)) {
