@@ -1,4 +1,5 @@
 import type { Mods } from './modifiers';
+import { getWorldMode } from './worlds';
 
 export type TechLine = 'industry' | 'military' | 'society' | 'science';
 
@@ -15,13 +16,22 @@ export interface TechDef {
   minDays?: number; // passive research can't finish it faster than this (clicks can)
 }
 
-export const ERAS = [
+const DEFAULT_ERAS = [
   { name: 'Industrial Age', year: 1900, color: '#b08850' },
   { name: 'Mechanized Age', year: 1925, color: '#7f8c8d' },
   { name: 'Atomic Age', year: 1950, color: '#27ae60' },
   { name: 'Information Age', year: 1980, color: '#2980b9' },
   { name: 'Future Age', year: 2010, color: '#8e44ad' },
 ];
+
+export function erasFor(mapId: string) {
+  const mode = getWorldMode(mapId);
+  if (!mode.eraNames || !mode.eraYears) return DEFAULT_ERAS;
+  return DEFAULT_ERAS.map((era, i) => ({ ...era, name: mode.eraNames![i], year: mode.eraYears![i] }));
+}
+
+/** Default era names for legacy callers that do not carry a game state. */
+export const ERAS = DEFAULT_ERAS;
 
 export const TECH_LINES: { id: TechLine; name: string }[] = [
   { id: 'industry', name: 'Industry' },
@@ -30,7 +40,7 @@ export const TECH_LINES: { id: TechLine; name: string }[] = [
   { id: 'science', name: 'Science' },
 ];
 
-export const TECHS: TechDef[] = [
+const BASE_TECHS: TechDef[] = [
   // Era 0 — Industrial
   { id: 'mechanization', name: 'Mechanization', line: 'industry', era: 0, desc: 'Machine tools everywhere.', mods: { factory: 0.1 } },
   { id: 'combustion', name: 'Internal Combustion', line: 'industry', era: 0, desc: 'Unlocks Oil Wells and Refineries.' },
@@ -77,6 +87,16 @@ export const TECHS: TechDef[] = [
   { id: 'ai_research', name: 'Artificial Intelligence', line: 'science', era: 4, desc: 'Machines that think.', mods: { research: 0.3 } },
   { id: 'singularity_project', name: 'Singularity Project', line: 'science', era: 4, desc: 'A decades-long megaproject: machines that improve themselves. Research and industry soar.', mods: { research: 0.4, factory: 0.2 }, requires: ['ai_research', 'fusion_power'], costMult: 30, minYear: 2032, minDays: 5475 },
 ];
+
+export const TECHS: TechDef[] = BASE_TECHS;
+
+export function techsFor(mapId: string): TechDef[] {
+  const mode = getWorldMode(mapId);
+  const themes = mode.techThemes;
+  return BASE_TECHS
+    .filter((tech) => !mode.disabledTechs?.includes(tech.id))
+    .map((tech) => (themes?.[tech.id] ? { ...tech, ...themes[tech.id] } : tech));
+}
 
 export const TECH_BY_ID: Record<string, TechDef> = Object.fromEntries(TECHS.map((t) => [t.id, t]));
 
