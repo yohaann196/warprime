@@ -66,7 +66,7 @@ function fbm(noise: (x: number, y: number) => number, x: number, y: number, octa
   return sum / norm;
 }
 
-export function generateMap(seed: number): GeneratedMap {
+export function generateMap(seed: number, mapId = 'random'): GeneratedMap {
   const rng = new Rng(seed);
   const elevNoise = createNoise2D(() => rng.next());
   const moistNoise = createNoise2D(() => rng.next());
@@ -90,9 +90,21 @@ export function generateMap(seed: number): GeneratedMap {
   const elevation = new Float64Array(n);
   const moisture = new Float64Array(n);
   const blobs: { x: number; y: number; r: number }[] = [];
-  const blobCount = rng.int(4, 6);
-  for (let i = 0; i < blobCount; i++) {
-    blobs.push({ x: rng.range(0.15, 0.85) * MAP_W, y: rng.range(0.2, 0.8) * MAP_H, r: rng.range(220, 380) });
+  if (mapId === 'avatar') {
+    // Broad regional landmasses suggest the Four Nations: the Fire Islands, Earth Kingdom,
+    // Northern and Southern Water Tribes, plus the small western Air Nomad island chain.
+    blobs.push(
+      { x: 410, y: 500, r: 350 },
+      { x: 1010, y: 500, r: 440 },
+      { x: 800, y: 155, r: 235 },
+      { x: 850, y: 865, r: 220 },
+      { x: 180, y: 185, r: 120 },
+    );
+  } else {
+    const blobCount = rng.int(4, 6);
+    for (let i = 0; i < blobCount; i++) {
+      blobs.push({ x: rng.range(0.15, 0.85) * MAP_W, y: rng.range(0.2, 0.8) * MAP_H, r: rng.range(220, 380) });
+    }
   }
   for (let i = 0; i < n; i++) {
     const x = xs[i];
