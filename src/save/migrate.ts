@@ -1,6 +1,6 @@
 // The only path from stored JSON to a playable GameState: shape check, refuse newer saves, upgrade
 // old ones step by step, then run every subsystem's default filler. Pure and DOM-free (no IndexedDB).
-import { TECH_BY_ID } from '../data/techs';
+import { TECH_BY_ID, techsFor } from '../data/techs';
 import { ensureDefaults } from '../sim/defaults';
 import { checkEnd } from '../sim/leaderboard';
 import type { GeneratedMap } from '../sim/worldgen/geometry';
@@ -21,7 +21,7 @@ export class SaveError extends Error {
 }
 
 /** Maps a save can be played on. The map registry extends this as data-defined maps arrive. */
-export const KNOWN_MAPS = new Set(['random']);
+export const KNOWN_MAPS = new Set(['random', 'avatar']);
 
 type Raw = Record<string, unknown> & { version: number };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,7 +32,7 @@ function dropInvalidResearch(state: GameState): void {
   for (const n of state.nations) {
     const id = n.tech.current;
     if (!id) continue;
-    const t = TECH_BY_ID[id];
+    const t = techsFor(state.settings.mapId).find((tech) => tech.id === id) ?? TECH_BY_ID[id];
     if (!t || canResearch(state, n, t) !== null) {
       n.tech.current = null;
       n.tech.progress = 0;
