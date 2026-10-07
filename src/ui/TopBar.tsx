@@ -1,4 +1,4 @@
-import { ERAS } from '../data/techs';
+import { erasFor } from '../data/techs';
 import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey } from '../data/institutions';
 import { heatEfficiency, upgradeCost } from '../sim/clicks';
@@ -56,6 +56,7 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
   const s = g.state;
   const n = g.player;
   if (!n) return null;
+  const eras = erasFor(s.settings.mapId);
   if (!n.alive) return <SpectatorBar g={g} onMenu={onMenu} />;
   let net = 0;
   for (const v of Object.values(n.ledger)) net += v;
@@ -79,7 +80,7 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
         <Flag nation={n} size={24} />
         <div>
           <div class="tb-name">{n.name}</div>
-          <div class="tb-sub">{ERAS[n.era].name}</div>
+          <div class="tb-sub">{eras[n.era].name}</div>
         </div>
       </button>
 
