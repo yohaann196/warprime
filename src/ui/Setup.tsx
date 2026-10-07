@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { GOOD_ICONS } from '../data/buildings';
+import { getWorldMode, WORLD_MODES, type WorldModeId } from '../data/worlds';
+import { erasFor } from '../data/techs';
 import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey, INSTITUTIONS_DEF } from '../data/institutions';
 import { MapRenderer } from '../render/MapRenderer';
@@ -18,16 +20,27 @@ function randomSeed(): number {
 export function MainMenu({ g, onHallOfFame }: { g: Game; onHallOfFame: () => void }) {
   const [saves, setSaves] = useState<SaveMeta[]>([]);
   const [err, setErr] = useState('');
+  const [selectedMode, setSelectedMode] = useState<WorldModeId>('random');
   useEffect(() => void listSaves().then(setSaves), []);
   const latest = saves.find((sv) => sv.compatible !== false);
   return (
     <div class="main-menu">
       <div class="title-card">
         <h1>WARPRIME</h1>
-        <p class="tagline">Lead a nation from 1900 to 3000. There are no victories: survive, and stay on top of the world for as long as you can.</p>
+        <p class="tagline">Choose a world, shape its history, and lead your nation through the ages.</p>
+        <h2 class="menu-section-title">Game modes</h2>
+        <div class="world-mode-grid">
+          {Object.values(WORLD_MODES).map((mode) => (
+            <button key={mode.id} class={`world-mode-card ${selectedMode === mode.id ? 'selected' : ''}`} onClick={() => setSelectedMode(mode.id)} aria-pressed={selectedMode === mode.id}>
+              <span class="world-mode-icon">{mode.icon}</span>
+              <span class="world-mode-copy"><b>{mode.name}</b><small>{mode.subtitle}</small><small class="muted">{mode.description}</small></span>
+              <span class="world-mode-check">{selectedMode === mode.id ? '✓' : ''}</span>
+            </button>
+          ))}
+        </div>
         <div class="menu-buttons">
-          <button class="big" onClick={() => g.prepare(defaultSettings(randomSeed()))}>
-            New game
+          <button class="big" onClick={() => g.prepare(defaultSettings(randomSeed(), 'realistic', selectedMode))}>
+            Start {getWorldMode(selectedMode).name}
           </button>
           {latest && (
             <button
@@ -53,7 +66,7 @@ export function MainMenu({ g, onHallOfFame }: { g: Game; onHallOfFame: () => voi
           <li>👆 Every click works your land, speeds construction or pushes your armies forward.</li>
           <li>🏭 Build production chains, trade on a living world market, research through five eras.</li>
           <li>🤝 Ally, trade, lend — or betray. The world remembers. Nukes exist; using them has a price.</li>
-          <li>🏆 Two leaderboards: who leads the world now, and who has led it longest. The game ends in 3000, or when your nation falls.</li>
+          <li>🏆 Two leaderboards: who leads the world now, and who has led it longest. Each mode has its own timeline and end date.</li>
         </ul>
       </div>
     </div>
@@ -69,6 +82,8 @@ export function SetupScreen({ g }: { g: Game }) {
   const [nation, setNation] = useState(-1);
   const [econ, setEcon] = useState<EconSystemId>('mixed');
   const [goals, setGoals] = useState<Institution[]>(['industry', 'trade']);
+  const mode = getWorldMode(s.settings.mapId);
+  const eras = erasFor(s.settings.mapId);
 
   useEffect(() => {
     const canvas = ref.current!;
@@ -109,7 +124,7 @@ export function SetupScreen({ g }: { g: Game }) {
   const regenerate = (seed: number) => {
     setNation(-1);
     g.diploTarget = -1;
-    g.prepare({ ...defaultSettings(seed, difficulty) });
+    g.prepare({ ...defaultSettings(seed, difficulty, s.settings.mapId as WorldModeId) });
     setSeedText(String(seed));
   };
 
@@ -152,15 +167,15 @@ export function SetupScreen({ g }: { g: Game }) {
               inputMode="numeric"
             />
           </label>
-          <button class="mini" onClick={() => regenerate(randomSeed())}>
-            🎲 New world
-          </button>
+          {mode.id === 'random' && <button class="mini" onClick={() => regenerate(randomSeed())}>🎲 New world</button>}
+          <span class="mode-badge">{mode.icon} {mode.name} · {mode.startYear}–{mode.endYear}</span>
           <span class="muted small">Click a country on the map to lead it.</span>
         </div>
       </div>
 
       <div class="setup-side">
         <h2>Choose your nation</h2>
+        <p class="muted small mode-description">{mode.description}</p>
         {sel ? (
           <div class="nation-card">
             <div class="nd-head">
@@ -194,6 +209,8 @@ export function SetupScreen({ g }: { g: Game }) {
             </button>
           ))}
         </div>
+
+        {mode.id === 'avatar' && <div class="avatar-era-track"><b>Era journey</b><div>{eras.map((era, i) => <span key={era.name} class={i === 0 ? 'current' : ''}><b>{era.year}</b>{era.name}</span>)}</div><small>Research four technologies per era to advance; era gates open on the listed world timeline.</small></div>}
 
         <h3>Economic system</h3>
         <div class="econ-grid compact">
