@@ -21,6 +21,7 @@ const TERRAIN_COLORS: Record<Terrain, [number, number, number]> = {
 };
 
 const BASE_SCALE = 2;
+const MAP_TILT = 0.78;
 
 export interface PlateHit {
   x: number;
@@ -95,7 +96,7 @@ export class MapRenderer {
   }
 
   minZoom(): number {
-    return Math.min(this.viewW / this.geo.width, this.viewH / this.geo.height);
+    return Math.min(this.viewW / this.geo.width, this.viewH / (this.geo.height * MAP_TILT));
   }
 
   fit(): void {
@@ -114,7 +115,7 @@ export class MapRenderer {
   clamp(): void {
     const z = this.cam.zoom;
     const halfW = this.viewW / 2 / z;
-    const halfH = this.viewH / 2 / z;
+    const halfH = this.viewH / 2 / (z * MAP_TILT);
     const W = this.geo.width;
     const H = this.geo.height;
     this.cam.x = halfW * 2 >= W ? W / 2 : Math.max(halfW, Math.min(W - halfW, this.cam.x));
@@ -122,11 +123,11 @@ export class MapRenderer {
   }
 
   screenToWorld(sx: number, sy: number): [number, number] {
-    return [(sx - this.viewW / 2) / this.cam.zoom + this.cam.x, (sy - this.viewH / 2) / this.cam.zoom + this.cam.y];
+    return [(sx - this.viewW / 2) / this.cam.zoom + this.cam.x, (sy - this.viewH / 2) / (this.cam.zoom * MAP_TILT) + this.cam.y];
   }
 
   worldToScreen(wx: number, wy: number): [number, number] {
-    return [(wx - this.cam.x) * this.cam.zoom + this.viewW / 2, (wy - this.cam.y) * this.cam.zoom + this.viewH / 2];
+    return [(wx - this.cam.x) * this.cam.zoom + this.viewW / 2, (wy - this.cam.y) * this.cam.zoom * MAP_TILT + this.viewH / 2];
   }
 
   zoomAt(sx: number, sy: number, factor: number): void {
@@ -208,6 +209,60 @@ export class MapRenderer {
     hg.lineTo(8, 0);
     hg.stroke();
     this.hatch = g.createPattern(hc, 'repeat');
+
+    // Faceted mountain ridges and forest canopies add readable height to the tilted map.
+    g.save();
+    g.lineJoin = 'round';
+    for (let i = 0; i < geo.cellPolys.length; i++) {
+      const terrain = geo.cellTerrain[i];
+      if (terrain !== 'mountains' && terrain !== 'hills' && (terrain !== 'forest' || i % 3 !== 0)) continue;
+      const x = geo.cellX[i];
+      const y = geo.cellY[i];
+      if (terrain === 'mountains' || terrain === 'hills') {
+        const scale = terrain === 'mountains' ? 1 : 0.68;
+        const w = 8 * scale;
+        const h = 12 * scale;
+        g.fillStyle = terrain === 'mountains' ? 'rgba(54,57,62,0.7)' : 'rgba(88,93,73,0.52)';
+        g.beginPath();
+        g.moveTo(x - w, y + h * 0.4);
+        g.lineTo(x, y - h * 0.65);
+        g.lineTo(x + w, y + h * 0.4);
+        g.lineTo(x + w, y + h * 0.4 + 3 * scale);
+        g.lineTo(x - w, y + h * 0.4 + 3 * scale);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(222,222,205,0.82)';
+        g.beginPath();
+        g.moveTo(x, y - h * 0.65);
+        g.lineTo(x - w, y + h * 0.4);
+        g.lineTo(x - w * 0.08, y + h * 0.18);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(28,35,35,0.34)';
+        g.beginPath();
+        g.moveTo(x, y - h * 0.65);
+        g.lineTo(x + w, y + h * 0.4);
+        g.lineTo(x - w * 0.08, y + h * 0.18);
+        g.closePath();
+        g.fill();
+      } else {
+        g.fillStyle = 'rgba(34,70,38,0.52)';
+        g.beginPath();
+        g.moveTo(x, y - 5);
+        g.lineTo(x - 4, y + 3);
+        g.lineTo(x + 4, y + 3);
+        g.closePath();
+        g.fill();
+        g.fillStyle = 'rgba(124,157,89,0.55)';
+        g.beginPath();
+        g.moveTo(x, y - 5);
+        g.lineTo(x - 0.5, y + 1);
+        g.lineTo(x + 2, y + 1);
+        g.closePath();
+        g.fill();
+      }
+    }
+    g.restore();
   }
 
   private provinceColor(pid: number, mode: MapMode): string | null {
@@ -336,10 +391,11 @@ export class MapRenderer {
     ctx.fillRect(0, 0, this.viewW, this.viewH);
     ctx.save();
     ctx.translate(this.viewW / 2, this.viewH / 2);
-    ctx.scale(z, z);
+    ctx.scale(z, z * MAP_TILT);
     ctx.translate(-this.cam.x, -this.cam.y);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(this.base, 0, 0, this.geo.width, this.geo.height);
+    this.drawTerrainRim(ctx, z);
 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -382,6 +438,18 @@ export class MapRenderer {
       this.drawPlates(ctx, z);
       this.drawFloaters(ctx, z, now);
     }
+    ctx.restore();
+  }
+
+  private drawTerrainRim(ctx: CanvasRenderingContext2D, z: number): void {
+    const { width, height } = this.geo;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(13,24,31,0.75)';
+    ctx.lineWidth = 9 / z;
+    ctx.strokeRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(205,177,119,0.28)';
+    ctx.lineWidth = 2 / z;
+    ctx.strokeRect(4 / z, 4 / z, width - 8 / z, height - 8 / z);
     ctx.restore();
   }
 
@@ -580,17 +648,43 @@ export class MapRenderer {
       const selected = g.divs.some((d) => this.game.selectedDivs.has(d.id));
       const training = g.divs.every((d) => d.training > 0);
       const hostile = s.player >= 0 && atWar(s, s.player, g.owner);
-      ctx.fillStyle = 'rgba(10,12,18,0.85)';
-      ctx.strokeStyle = selected ? '#ffd34d' : hostile ? '#ff4b4b' : 'rgba(255,255,255,0.65)';
-      ctx.lineWidth = (selected ? 2.4 : 1.2) / z;
       const rx = x - w / 2;
       const ry = y - h / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.36)';
       ctx.beginPath();
-      ctx.roundRect(rx, ry, w, h, 3 / z);
+      ctx.ellipse(x + 1 / z, y + h * 0.58, w * 0.56, h * 0.58, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hostile ? '#712d2c' : '#202b37';
+      ctx.strokeStyle = selected ? '#ffe18a' : hostile ? '#ff645b' : 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = (selected ? 2.4 : 1.2) / z;
+      ctx.beginPath();
+      ctx.moveTo(x - w * 0.48, y - h * 0.2);
+      ctx.lineTo(x - w * 0.42, y - h * 0.55);
+      ctx.lineTo(x + w * 0.42, y - h * 0.55);
+      ctx.lineTo(x + w * 0.48, y - h * 0.2);
+      ctx.lineTo(x + w * 0.48, y + h * 0.32);
+      ctx.lineTo(x + w * 0.35, y + h * 0.48);
+      ctx.lineTo(x - w * 0.35, y + h * 0.48);
+      ctx.lineTo(x - w * 0.48, y + h * 0.32);
+      ctx.closePath();
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = n.color;
-      ctx.fillRect(rx + 1.5 / z, ry + 1.5 / z, 5 / z, h - 3 / z);
+      ctx.beginPath();
+      ctx.moveTo(rx + 2 / z, y - h * 0.12);
+      ctx.lineTo(rx + 6 / z, y - h * 0.42);
+      ctx.lineTo(rx + 6 / z, y + h * 0.37);
+      ctx.lineTo(rx + 2 / z, y + h * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.moveTo(rx + 7 / z, y - h * 0.43);
+      ctx.lineTo(rx + w - 2 / z, y - h * 0.43);
+      ctx.lineTo(rx + w - 2 / z, y - h * 0.18);
+      ctx.lineTo(rx + 7 / z, y - h * 0.18);
+      ctx.closePath();
+      ctx.fill();
       const counts = new Map<string, number>();
       for (const d of g.divs) counts.set(d.type, (counts.get(d.type) ?? 0) + 1);
       const main = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0] as keyof typeof UNITS;
