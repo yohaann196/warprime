@@ -85,7 +85,7 @@ export class Game {
 
   /** Generates a world for the setup screen (all AI until the player picks a nation). */
   prepare(settings: Settings): void {
-    const map = generateMap(settings.seed);
+    const map = generateMap(settings.seed, settings.mapId);
     const { state } = newGame(settings, map);
     this.state = state;
     this.map = map;
@@ -113,7 +113,7 @@ export class Game {
 
   /** Resume from a saved (already migrated) state. Throws SaveError('mapChanged') if its world cannot be rebuilt. */
   load(state: GameState): void {
-    const map = generateMap(state.settings.seed);
+    const map = generateMap(state.settings.seed, state.settings.mapId);
     checkMapMatches(state, map);
     this.map = map;
     this.state = state;
