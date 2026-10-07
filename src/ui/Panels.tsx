@@ -3,7 +3,7 @@ import { BUILDINGS, GOOD_ICONS, GOOD_NAMES } from '../data/buildings';
 import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey, INSTITUTIONS_DEF, institutionCost, MAX_INSTITUTION_LEVEL } from '../data/institutions';
 import { MOD_LABELS, formatMod, type ModKey } from '../data/modifiers';
-import { ERAS, TECHS, TECH_LINES, techCost, TECHS_TO_ADVANCE_ERA } from '../data/techs';
+import { erasFor, techsFor, TECH_LINES, techCost, TECHS_TO_ADVANCE_ERA } from '../data/techs';
 import { NUKE_COST, UNITS } from '../data/units';
 import { activeBuilds, maxConcurrentBuilds } from '../sim/economy/build';
 import { buyPrice, sellPrice } from '../sim/economy/market';
@@ -226,7 +226,9 @@ export function GovernmentPanel({ g }: { g: Game }) {
 export function ResearchPanel({ g }: { g: Game }) {
   const s = g.state;
   const n = g.player;
-  const cur = n.tech.current ? TECHS.find((t) => t.id === n.tech.current)! : null;
+  const eras = erasFor(s.settings.mapId);
+  const techs = techsFor(s.settings.mapId);
+  const cur = n.tech.current ? techs.find((t) => t.id === n.tech.current)! : null;
   const doneThisEra = n.tech.researched.filter((id) => TECHS.find((t) => t.id === id)!.era === n.era).length;
   const researchClick = () => {
     const r = g.cmd({ type: 'researchClick' }, true);
@@ -234,10 +236,10 @@ export function ResearchPanel({ g }: { g: Game }) {
   };
   return (
     <div>
-      <Section title={ERAS[n.era].name} right={<span class="muted">{fmt(n.research)}/day</span>}>
-        {n.era < ERAS.length - 1 && (
+      <Section title={eras[n.era].name right={<span class="muted">{fmt(n.research)}/day</span>}>
+        {n.era < eras.length - 1 && (
           <div class="muted small">
-            Next era ({ERAS[n.era + 1].name}): research {TECHS_TO_ADVANCE_ERA} techs of this era ({doneThisEra}/{TECHS_TO_ADVANCE_ERA}) and reach {ERAS[n.era + 1].year - 8}.
+            Next era ({eras[n.era + 1].name}): research {TECHS_TO_ADVANCE_ERA} techs of this era ({doneThisEra}/{TECHS_TO_ADVANCE_ERA}) and reach {eras[n.era + 1].year - 8}.
           </div>
         )}
         {cur ? (
@@ -253,14 +255,14 @@ export function ResearchPanel({ g }: { g: Game }) {
         )}
       </Section>
       <div class="tech-tree">
-        {ERAS.map((era, e) => (
+        {eras.map((era, e) => (
           <div key={e} class={`era-col ${e > n.era ? 'locked' : ''}`}>
             <div class="era-head" style={{ borderColor: era.color }}>
               {era.name}
               <small>{era.year}</small>
             </div>
             {TECH_LINES.map((line) =>
-              TECHS.filter((t) => t.era === e && t.line === line.id).map((t) => {
+              techs.filter((t) => t.era === e && t.line === line.id).map((t) => {
                 const done = n.tech.researched.includes(t.id);
                 const why = canResearch(s, n, t);
                 const active = n.tech.current === t.id;
@@ -412,7 +414,7 @@ export function LeaderboardPanel({ g }: { g: Game }) {
                 <b>All-time</b>: total time spent at #1, then time in the top 3, then rank points. Fallen nations keep their place.
               </li>
               <li>
-                The game ends on 1 Jan {s.settings.endYear}, when Earth becomes uninhabitable, or when your nation is destroyed.{' '}
+                The game ends on 1 Jan {s.settings.endYear} (the world’s timeline limit), or earlier if your nation falls or the climate collapses.{' '}
                 <b>
                   {left} year{left === 1 ? '' : 's'} remaining.
                 </b>
@@ -466,3 +468,4 @@ export function LogPanel({ g }: { g: Game }) {
     </div>
   );
 }
+
