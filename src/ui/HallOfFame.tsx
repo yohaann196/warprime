@@ -1,5 +1,6 @@
 // Finished runs on this device, best legacy first.
 import { useEffect, useState } from 'preact/hooks';
+import { getWorldMode } from '../data/worlds';
 import { DIFFICULTY } from '../sim/difficulty';
 import { DAYS_PER_YEAR, type EndCause } from '../sim/state';
 import { yearsShort } from '../sim/leaderboard';
@@ -11,8 +12,6 @@ const CAUSE: Record<EndCause, string> = {
   climate_collapse: 'Earth became uninhabitable',
   eliminated: 'Fell',
 };
-
-const MAP_NAMES: Record<string, string> = { random: 'Random World' };
 
 export function HallOfFame({ onClose, highlight }: { onClose: () => void; highlight?: string }) {
   const [rows, setRows] = useState<HallOfFameEntry[] | null>(null);
@@ -51,7 +50,7 @@ export function HallOfFame({ onClose, highlight }: { onClose: () => void; highli
                         <span>
                           <b>{r.nationName}</b>
                           <small class="muted">
-                            {MAP_NAMES[r.mapId] ?? r.mapId} · {DIFFICULTY[r.difficulty]?.name ?? r.difficulty} · seed {r.seed}
+                            {getWorldMode(r.mapId).name} · {DIFFICULTY[r.difficulty]?.name ?? r.difficulty} · seed {r.seed}
                           </small>
                         </span>
                       </span>
