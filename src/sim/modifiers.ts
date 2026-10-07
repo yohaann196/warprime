@@ -1,7 +1,7 @@
 import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey, INSTITUTIONS_DEF } from '../data/institutions';
 import type { ModKey, Mods } from '../data/modifiers';
-import { TECH_BY_ID } from '../data/techs';
+import { TECH_BY_ID, techsFor } from '../data/techs';
 import { DIFFICULTY } from './difficulty';
 import { INSTITUTIONS, type GameState } from './state';
 
@@ -31,7 +31,7 @@ export function modSources(state: GameState, nationId: number): ModSource[] {
 
   const techMods: Mods = {};
   for (const id of n.tech.researched) {
-    const t = TECH_BY_ID[id];
+    const t = techsFor(state.settings.mapId).find((tech) => tech.id === id) ?? TECH_BY_ID[id];
     if (!t?.mods) continue;
     for (const k of Object.keys(t.mods) as ModKey[]) techMods[k] = (techMods[k] ?? 0) + t.mods[k]!;
   }
