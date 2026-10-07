@@ -1,6 +1,6 @@
 // Daily economy for one nation: logistics, production, population, money, happiness and stability.
 import { BUILDINGS, MINE_OUTPUT } from '../../data/buildings';
-import { ERAS } from '../../data/techs';
+import { erasFor } from '../../data/techs';
 import { UNITS } from '../../data/units';
 import { mod, mult } from '../modifiers';
 import { hasTech, ownedProvinces, puppetsOf, overlordOf, nationPop } from '../query';
@@ -314,11 +314,13 @@ function manpowerDay(state: GameState, n: Nation, totalPop: number): void {
   n.manpower = Math.min(cap, n.manpower + regen);
 }
 
-export function eraName(era: number): string {
-  return ERAS[Math.min(era, ERAS.length - 1)].name;
+export function eraName(era: number, mapId = 'random'): string {
+  const eras = erasFor(mapId);
+  return eras[Math.min(era, eras.length - 1)].name;
 }
 
 export function isAtWar(state: GameState, n: number): boolean {
   return state.wars.some((w) => w.attackers.includes(n) || w.defenders.includes(n));
 }
+
 
