@@ -17,6 +17,7 @@ import { ensureDefaults } from '../defaults';
 import { emptyLeaderboard } from '../leaderboard';
 import { HISTORY_STEP } from '../prosperity';
 import { SAVE_VERSION } from '../version';
+import { getWorldMode } from '../../data/worlds';
 
 export { SAVE_VERSION };
 
@@ -37,7 +38,7 @@ const AI_SYSTEMS: EconSystemId[] = ['free_market', 'planned', 'mixed', 'mercanti
 
 /** Builds a brand-new game state (all nations AI-controlled until a player nation is chosen). */
 export function newGame(settings: Settings, map?: GeneratedMap): { state: GameState; map: GeneratedMap } {
-  const gm = map ?? generateMap(settings.seed);
+  const gm = map ?? generateMap(settings.seed, settings.mapId);
   const rng = new Rng(settings.seed ^ 0x9e3779b9);
   const usedNames = new Set<string>();
 
@@ -71,26 +72,36 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
   const count = Math.min(settings.nationCount, Math.floor(land.length / 4));
   const capitals: number[] = [];
   const candidates = land.filter((p) => p.terrain !== 'mountains' && p.terrain !== 'tundra');
-  capitals.push(rng.pick(candidates).id);
-  while (capitals.length < count) {
-    let best = -1;
-    let bestScore = -Infinity;
-    for (let k = 0; k < 40; k++) {
-      const c = rng.pick(candidates);
-      if (capitals.includes(c.id)) continue;
-      let d = Infinity;
-      for (const cap of capitals) {
-        const o = provinces[cap];
-        d = Math.min(d, Math.hypot(o.center[0] - c.center[0], o.center[1] - c.center[1]));
-      }
-      const score = d + c.pop * 0.05;
-      if (score > bestScore) {
-        bestScore = score;
-        best = c.id;
-      }
+  if (settings.mapId === 'avatar') {
+    const regions: [number, number][] = [[410, 500], [1010, 500], [800, 155], [850, 865]];
+    for (const [x, y] of regions.slice(0, count)) {
+      const nearest = candidates
+        .filter((p) => !capitals.includes(p.id))
+        .sort((a, b) => Math.hypot(a.center[0] - x, a.center[1] - y) - Math.hypot(b.center[0] - x, b.center[1] - y))[0];
+      if (nearest) capitals.push(nearest.id);
     }
-    if (best === -1) break;
-    capitals.push(best);
+  } else {
+    capitals.push(rng.pick(candidates).id);
+    while (capitals.length < count) {
+      let best = -1;
+      let bestScore = -Infinity;
+      for (let k = 0; k < 40; k++) {
+        const c = rng.pick(candidates);
+        if (capitals.includes(c.id)) continue;
+        let d = Infinity;
+        for (const cap of capitals) {
+          const o = provinces[cap];
+          d = Math.min(d, Math.hypot(o.center[0] - c.center[0], o.center[1] - c.center[1]));
+        }
+        const score = d + c.pop * 0.05;
+        if (score > bestScore) {
+          bestScore = score;
+          best = c.id;
+        }
+      }
+      if (best === -1) break;
+      capitals.push(best);
+    }
   }
 
   // --- grow nations with a weighted Dijkstra over land (+ short sea hops) ---
@@ -148,10 +159,12 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
   // --- nations ---
   const usedNationNames = new Set<string>();
   const hueBase = rng.next() * 360;
+  const world = getWorldMode(settings.mapId);
   const nations: Nation[] = capitals.map((cap, i) => {
-    const nm = nationName(rng, usedNationNames);
+    const authored = world.nations?.[i];
+    const nm = authored ? { name: authored.name, adjective: authored.adjective } : nationName(rng, usedNationNames);
     const hue = (hueBase + i * 137.508) % 360;
-    const color = hsl(hue, 45 + rng.next() * 25, 48 + rng.next() * 12);
+    const color = authored?.color ?? hsl(hue, 45 + rng.next() * 25, 48 + rng.next() * 12);
     const flagColors = [color, hsl((hue + 180) % 360, 55, 50), rng.chance(0.5) ? '#f4f1e8' : '#1d1d1d'];
     const goalsPool = [...INSTITUTIONS];
     rng.shuffle(goalsPool);
