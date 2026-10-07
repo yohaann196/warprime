@@ -229,7 +229,7 @@ export function ResearchPanel({ g }: { g: Game }) {
   const eras = erasFor(s.settings.mapId);
   const techs = techsFor(s.settings.mapId);
   const cur = n.tech.current ? techs.find((t) => t.id === n.tech.current)! : null;
-  const doneThisEra = n.tech.researched.filter((id) => TECHS.find((t) => t.id === id)!.era === n.era).length;
+  const doneThisEra = n.tech.researched.filter((id) => techs.find((t) => t.id === id)?.era === n.era).length;
   const researchClick = () => {
     const r = g.cmd({ type: 'researchClick' }, true);
     if (!r.ok) g.toast(r.msg ?? '', 'err');
@@ -467,4 +467,3 @@ export function LogPanel({ g }: { g: Game }) {
     </div>
   );
 }
-

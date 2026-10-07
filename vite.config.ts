@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import preact from '@preact/preset-vite';
-import pkg from './package.json';
+import pkg from './package.json' with { type: 'json' };
 
 const commit = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.VITE_COMMIT_SHA ?? 'dev';
 const builtAt = new Date().toISOString();
