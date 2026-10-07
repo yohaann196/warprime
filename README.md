@@ -10,11 +10,11 @@ Inspired by *Age of Clicks*; see [docs/DESIGN.md](docs/DESIGN.md) for the resear
 
 - **Clicking that matters**: work your provinces, speed up construction and research, and click
   contested provinces to push your armies forward. Automation takes over as you grow.
-- **Procedural worlds**: seeded continents, ~300 provinces and 18 nations every game.
+- **Game modes**: Random Fictional creates a fresh procedural world; Avatar begins in the Four Nations and advances through a custom technology-era timeline toward The Legend of Korra.
 - **Economy**: production chains, logistics and roads, a living world market, trade contracts and loans.
 - **Six economic systems** with real trade-offs, six institutions with 60 reforms, 15 doctrines.
-- **40 technologies** across five eras, from rifles to drones, missile shields and the Singularity.
-- **War on the map**: divisions, marching orders, battles, encirclement, sieges and peace conferences.
+- **40 technologies** across five eras, from rifles to drones, missile shields and the Singularity; the Avatar mode renames eras and research for its setting and omits nuclear weapons.
+- **War on the map**: divisions, marching orders, battles, encirclement, sieges and peace conferences on a semi-angled, top-down map with layered terrain relief.
 - **Diplomacy with memory**: alliances, betrayal, non-aggression pacts, truces, puppets and a
   treaty desk that shows you the AI's reasoning before you propose.
 - **Nuclear weapons**: devastating, and the whole world will turn against you.
@@ -32,8 +32,7 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-Controls: click your provinces to work them · click a unit plate to select, then click/right-click a
-province to march · click a contested province to push · drag to pan · wheel/pinch to zoom ·
+Choose a **Game mode** from the main menu before starting. Controls: click your provinces to work them · click a unit plate to select, then click/right-click a province to march · click a contested province to push · drag to pan · wheel/pinch to zoom ·
 `Space` pause · `1`–`4` speed · `Esc` deselect. Hover any number for a breakdown.
 
 ## Develop
