@@ -235,8 +235,7 @@ export function ResearchPanel({ g }: { g: Game }) {
     if (!r.ok) g.toast(r.msg ?? '', 'err');
   };
   return (
-    <div>
-      <Section title={eras[n.era].name right={<span class="muted">{fmt(n.research)}/day</span>}>
+    <div><Section title={eras[n.era].name} right={<span class="muted">{fmt(n.research)}/day</span>}>
         {n.era < eras.length - 1 && (
           <div class="muted small">
             Next era ({eras[n.era + 1].name}): research {TECHS_TO_ADVANCE_ERA} techs of this era ({doneThisEra}/{TECHS_TO_ADVANCE_ERA}) and reach {eras[n.era + 1].year - 8}.
