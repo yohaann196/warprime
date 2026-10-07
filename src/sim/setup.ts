@@ -1,9 +1,11 @@
 import type { Difficulty, EconSystemId, GameState, Institution, Settings } from './state';
 import { ECON_SYSTEMS } from '../data/econSystems';
 import { DIFFICULTY } from './difficulty';
+import { getWorldMode, type WorldModeId } from '../data/worlds';
 
-export function defaultSettings(seed: number, difficulty: Difficulty = 'realistic'): Settings {
-  return { seed, difficulty, nationCount: 18, mapId: 'random', startYear: 1900, endYear: 3000 };
+export function defaultSettings(seed: number, difficulty: Difficulty = 'realistic', mapId: WorldModeId = 'random'): Settings {
+  const mode = getWorldMode(mapId);
+  return { seed, difficulty, nationCount: mode.nationCount, mapId: mode.id, startYear: mode.startYear, endYear: mode.endYear };
 }
 
 export interface PlayerSetup {
