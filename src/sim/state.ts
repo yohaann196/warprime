@@ -245,7 +245,7 @@ export interface Settings {
   seed: number;
   difficulty: Difficulty;
   nationCount: number;
-  mapId: string; // 'random' = the seeded procedural world
+  mapId: string; // 'random' = procedural fictional world; other ids select authored world modes
   startYear: number;
   endYear: number; // the game ends on 1 Jan of this year
 }
