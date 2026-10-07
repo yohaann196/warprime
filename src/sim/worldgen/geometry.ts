@@ -1,330 +1,397 @@
+import { Delaunay } from 'd3-delaunay';
+import { createNoise2D } from 'simplex-noise';
 import { Rng } from '../rng';
-import {
-  emptyStock,
-  INSTITUTIONS,
-  type EconSystemId,
-  type GameState,
-  type Institution,
-  type Nation,
-  type Province,
-  type Settings,
-} from '../state';
-import { generateMap, type GeneratedMap } from './geometry';
-import { cityName, nationName, seaName } from './names';
-import { BASE_PRICES } from '../../data/buildings';
-import { FOOD_PER_POP, FOOD_TERRAIN } from '../economy/production';
-import { ensureDefaults } from '../defaults';
-import { emptyLeaderboard } from '../leaderboard';
-import { HISTORY_STEP } from '../prosperity';
-import { SAVE_VERSION } from '../version';
-import { getWorldMode } from '../../data/worlds';
+import type { Resource, Terrain } from '../state';
 
-export { SAVE_VERSION };
+export const MAP_W = 1600;
+export const MAP_H = 1000;
+const SPACING = 18;
+const LAND_CELLS_PER_PROVINCE = 7;
+const SEA_CELLS_PER_ZONE = 40;
 
-function hsl(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  const hex = (x: number) =>
-    Math.round(x * 255)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${hex(f(0))}${hex(f(8))}${hex(f(4))}`;
+export interface BorderEdge {
+  a: number; // province on one side
+  b: number; // province on other side
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
-const AI_SYSTEMS: EconSystemId[] = ['free_market', 'planned', 'mixed', 'mercantilism', 'war_economy', 'cooperative'];
+/** Static map geometry. Fully derived from the seed, never saved. */
+export interface WorldGeometry {
+  seed: number;
+  width: number;
+  height: number;
+  cellX: Float64Array;
+  cellY: Float64Array;
+  cellPolys: number[][]; // flat [x0,y0,x1,y1,...]
+  cellProvince: Int32Array;
+  cellTerrain: Terrain[];
+  cellElevation: Float64Array;
+  delaunay: Delaunay<[number, number]>;
+  edges: BorderEdge[]; // every edge between two different provinces
+  provinceCells: number[][];
+}
 
-/** Builds a brand-new game state (all nations AI-controlled until a player nation is chosen). */
-export function newGame(settings: Settings, map?: GeneratedMap): { state: GameState; map: GeneratedMap } {
-  const gm = map ?? generateMap(settings.seed, settings.mapId);
-  const rng = new Rng(settings.seed ^ 0x9e3779b9);
-  const usedNames = new Set<string>();
+export interface ProvinceSeed {
+  id: number;
+  terrain: Terrain;
+  isSea: boolean;
+  coastal: boolean;
+  center: [number, number];
+  area: number;
+  neighbors: number[];
+  resource: Resource | null;
+  basePop: number;
+  component: number;
+}
 
-  const provinces: Province[] = gm.provinces.map((p) => ({
-    id: p.id,
-    name: p.isSea ? seaName(rng, usedNames) : cityName(rng, usedNames),
-    terrain: p.terrain,
-    isSea: p.isSea,
-    coastal: p.coastal,
-    center: p.center,
-    area: p.area,
-    neighbors: p.neighbors,
-    owner: -1,
-    controller: -1,
-    pop: p.basePop,
-    resource: p.resource,
-    buildings: {},
-    construction: null,
-    roads: 0,
-    devastation: 0,
-    fallout: 0,
-    siege: 0,
-    siegeBy: -1,
-    isCapital: false,
-    unrest: 0,
-  }));
+export interface GeneratedMap {
+  geo: WorldGeometry;
+  provinces: ProvinceSeed[];
+}
 
-  const land = provinces.filter((p) => !p.isSea);
+function fbm(noise: (x: number, y: number) => number, x: number, y: number, octaves: number): number {
+  let amp = 1;
+  let freq = 1;
+  let sum = 0;
+  let norm = 0;
+  for (let i = 0; i < octaves; i++) {
+    sum += amp * noise(x * freq, y * freq);
+    norm += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return sum / norm;
+}
 
-  // --- choose capitals: spread out, prefer populous land ---
-  const count = Math.min(settings.nationCount, Math.floor(land.length / 4));
-  const capitals: number[] = [];
-  const candidates = land.filter((p) => p.terrain !== 'mountains' && p.terrain !== 'tundra');
-  if (settings.mapId === 'avatar') {
-    const regions: [number, number][] = [[410, 500], [1010, 500], [800, 155], [850, 865]];
-    for (const [x, y] of regions.slice(0, count)) {
-      const nearest = candidates
-        .filter((p) => !capitals.includes(p.id))
-        .sort((a, b) => Math.hypot(a.center[0] - x, a.center[1] - y) - Math.hypot(b.center[0] - x, b.center[1] - y))[0];
-      if (nearest) capitals.push(nearest.id);
+export function generateMap(seed: number, mapId = 'random'): GeneratedMap {
+  const rng = new Rng(seed);
+  const elevNoise = createNoise2D(() => rng.next());
+  const moistNoise = createNoise2D(() => rng.next());
+  const warpNoise = createNoise2D(() => rng.next());
+
+  // --- cells: jittered grid ---
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let y = SPACING / 2; y < MAP_H; y += SPACING) {
+    for (let x = SPACING / 2; x < MAP_W; x += SPACING) {
+      xs.push(Math.min(MAP_W - 1, Math.max(1, x + rng.range(-0.42, 0.42) * SPACING)));
+      ys.push(Math.min(MAP_H - 1, Math.max(1, y + rng.range(-0.42, 0.42) * SPACING)));
     }
+  }
+  const n = xs.length;
+  const pts: [number, number][] = xs.map((x, i) => [x, ys[i]]);
+  const delaunay = Delaunay.from(pts);
+  const voronoi = delaunay.voronoi([0, 0, MAP_W, MAP_H]);
+
+  // --- elevation & climate ---
+  const elevation = new Float64Array(n);
+  const moisture = new Float64Array(n);
+  const blobs: { x: number; y: number; r: number }[] = [];
+  if (mapId === 'avatar') {
+    // Broad regional landmasses suggest the Four Nations: the Fire Islands, Earth Kingdom,
+    // Northern and Southern Water Tribes, plus the small western Air Nomad island chain.
+    blobs.push(
+      { x: 410, y: 500, r: 350 },
+      { x: 1010, y: 500, r: 440 },
+      { x: 800, y: 155, r: 235 },
+      { x: 850, y: 865, r: 220 },
+      { x: 180, y: 185, r: 120 },
+    );
   } else {
-    capitals.push(rng.pick(candidates).id);
-    while (capitals.length < count) {
-      let best = -1;
-      let bestScore = -Infinity;
-      for (let k = 0; k < 40; k++) {
-        const c = rng.pick(candidates);
-        if (capitals.includes(c.id)) continue;
+    const blobCount = rng.int(4, 6);
+    for (let i = 0; i < blobCount; i++) {
+      blobs.push({ x: rng.range(0.15, 0.85) * MAP_W, y: rng.range(0.2, 0.8) * MAP_H, r: rng.range(220, 380) });
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const x = xs[i];
+    const y = ys[i];
+    const wx = x + 60 * warpNoise(x / 300, y / 300);
+    const wy = y + 60 * warpNoise(y / 300 + 50, x / 300 + 50);
+    let continent = 0;
+    for (const b of blobs) {
+      const d = Math.hypot(wx - b.x, wy - b.y) / b.r;
+      continent = Math.max(continent, 1 - d);
+    }
+    const edge = Math.min(x, MAP_W - x, y, MAP_H - y) / 120;
+    const edgeFalloff = Math.min(1, edge);
+    elevation[i] = (0.65 * continent + 0.55 * fbm(elevNoise, x / 420, y / 420, 5)) * edgeFalloff - (1 - edgeFalloff) * 0.5;
+    moisture[i] = fbm(moistNoise, x / 350, y / 350, 3);
+  }
+  const sorted = Array.from(elevation).sort((a, b) => a - b);
+  const seaLevel = sorted[Math.floor(n * 0.56)];
+  const landElev = sorted.filter((e) => e > seaLevel);
+  const hillLevel = landElev[Math.floor(landElev.length * 0.72)];
+  const mountainLevel = landElev[Math.floor(landElev.length * 0.9)];
+
+  const terrain: Terrain[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const e = elevation[i];
+    if (e <= seaLevel) {
+      terrain[i] = 'ocean';
+      continue;
+    }
+    const lat = Math.abs(ys[i] / MAP_H - 0.5) * 2; // 0 equator .. 1 pole
+    const temp = 1 - lat * 1.1 - (e - seaLevel) * 0.6;
+    const m = moisture[i];
+    if (e >= mountainLevel) terrain[i] = 'mountains';
+    else if (temp < 0.18) terrain[i] = 'tundra';
+    else if (e >= hillLevel) terrain[i] = 'hills';
+    else if (temp > 0.55 && m < -0.18) terrain[i] = 'desert';
+    else if (temp > 0.6 && m > 0.25) terrain[i] = 'jungle';
+    else if (m > 0.05) terrain[i] = 'forest';
+    else terrain[i] = 'plains';
+  }
+
+  // --- neighbour lists ---
+  const cellNeighbors: number[][] = [];
+  for (let i = 0; i < n; i++) cellNeighbors.push(Array.from(delaunay.neighbors(i)));
+
+  // --- connected components (land / sea separately) ---
+  const component = new Int32Array(n).fill(-1);
+  let compCount = 0;
+  const compCells: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    if (component[i] !== -1) continue;
+    const isSea = terrain[i] === 'ocean';
+    const cells: number[] = [];
+    const stack = [i];
+    component[i] = compCount;
+    while (stack.length) {
+      const c = stack.pop()!;
+      cells.push(c);
+      for (const nb of cellNeighbors[c]) {
+        if (component[nb] === -1 && (terrain[nb] === 'ocean') === isSea) {
+          component[nb] = compCount;
+          stack.push(nb);
+        }
+      }
+    }
+    compCells.push(cells);
+    compCount++;
+  }
+
+  // Tiny land specks (1–2 cells) become sea to avoid unplayable micro-islands.
+  for (const cells of compCells) {
+    if (terrain[cells[0]] !== 'ocean' && cells.length <= 2) for (const c of cells) terrain[c] = 'ocean';
+  }
+
+  // Recompute components after cleanup.
+  component.fill(-1);
+  compCells.length = 0;
+  compCount = 0;
+  for (let i = 0; i < n; i++) {
+    if (component[i] !== -1) continue;
+    const isSea = terrain[i] === 'ocean';
+    const cells: number[] = [];
+    const stack = [i];
+    component[i] = compCount;
+    while (stack.length) {
+      const c = stack.pop()!;
+      cells.push(c);
+      for (const nb of cellNeighbors[c]) {
+        if (component[nb] === -1 && (terrain[nb] === 'ocean') === isSea) {
+          component[nb] = compCount;
+          stack.push(nb);
+        }
+      }
+    }
+    compCells.push(cells);
+    compCount++;
+  }
+
+  // --- group cells into provinces via randomized multi-source BFS within each component ---
+  const cellProvince = new Int32Array(n).fill(-1);
+  const provinceCells: number[][] = [];
+  const provinceComponent: number[] = [];
+  for (let ci = 0; ci < compCells.length; ci++) {
+    const cells = compCells[ci];
+    const isSea = terrain[cells[0]] === 'ocean';
+    const per = isSea ? SEA_CELLS_PER_ZONE : LAND_CELLS_PER_PROVINCE;
+    const count = Math.max(1, Math.round(cells.length / per));
+    // farthest-point-ish seeding for even provinces
+    const seeds: number[] = [rng.pick(cells)];
+    while (seeds.length < count) {
+      let best = cells[0];
+      let bestD = -1;
+      for (let k = 0; k < 24; k++) {
+        const c = rng.pick(cells);
         let d = Infinity;
-        for (const cap of capitals) {
-          const o = provinces[cap];
-          d = Math.min(d, Math.hypot(o.center[0] - c.center[0], o.center[1] - c.center[1]));
-        }
-        const score = d + c.pop * 0.05;
-        if (score > bestScore) {
-          bestScore = score;
-          best = c.id;
+        for (const s of seeds) d = Math.min(d, (xs[c] - xs[s]) ** 2 + (ys[c] - ys[s]) ** 2);
+        if (d > bestD) {
+          bestD = d;
+          best = c;
         }
       }
-      if (best === -1) break;
-      capitals.push(best);
+      seeds.push(best);
     }
-  }
-
-  // --- grow nations with a weighted Dijkstra over land (+ short sea hops) ---
-  const weight = capitals.map(() => rng.range(0.6, 1.6));
-  const cost = new Float64Array(provinces.length).fill(Infinity);
-  const owner = new Int32Array(provinces.length).fill(-1);
-  const open: { id: number; c: number; n: number }[] = [];
-  capitals.forEach((cap, i) => {
-    cost[cap] = 0;
-    owner[cap] = i;
-    open.push({ id: cap, c: 0, n: i });
-  });
-  const terrainCost: Record<string, number> = { plains: 1, forest: 1.3, hills: 1.6, mountains: 3, desert: 1.8, tundra: 2, jungle: 1.7 };
-  while (open.length) {
-    let bi = 0;
-    for (let i = 1; i < open.length; i++) if (open[i].c < open[bi].c) bi = i;
-    const cur = open.splice(bi, 1)[0];
-    if (cur.c > cost[cur.id]) continue;
-    const pc = provinces[cur.id];
-    const visit = (nbId: number, extra: number) => {
-      const nb = provinces[nbId];
-      const d = Math.hypot(nb.center[0] - pc.center[0], nb.center[1] - pc.center[1]);
-      const c = cur.c + ((d * (terrainCost[nb.terrain] ?? 1) + extra) / weight[cur.n]) * rng.range(0.85, 1.15);
-      if (c < cost[nbId]) {
-        cost[nbId] = c;
-        owner[nbId] = cur.n;
-        open.push({ id: nbId, c, n: cur.n });
-      }
-    };
-    for (const nbId of pc.neighbors) {
-      if (!provinces[nbId].isSea) visit(nbId, 0);
-      else {
-        // hop across a sea zone to reach islands, at a premium
-        for (const far of provinces[nbId].neighbors) if (!provinces[far].isSea && far !== cur.id) visit(far, 260);
+    const frontiers: number[][] = [];
+    for (const s of seeds) {
+      const pid = provinceCells.length;
+      provinceCells.push([s]);
+      provinceComponent.push(ci);
+      cellProvince[s] = pid;
+      frontiers.push([s]);
+    }
+    let active = true;
+    while (active) {
+      active = false;
+      for (let f = 0; f < frontiers.length; f++) {
+        const frontier = frontiers[f];
+        if (!frontier.length) continue;
+        active = true;
+        const pid = cellProvince[seeds[f]];
+        // expand one random frontier cell per round for organic shapes
+        const idx = Math.floor(rng.next() * frontier.length);
+        const c = frontier[idx];
+        let grew = false;
+        for (const nb of cellNeighbors[c]) {
+          if (cellProvince[nb] === -1 && component[nb] === ci) {
+            cellProvince[nb] = pid;
+            provinceCells[pid].push(nb);
+            frontier.push(nb);
+            grew = true;
+            break;
+          }
+        }
+        if (!grew) frontier.splice(idx, 1);
       }
     }
   }
 
-  // remote islands the flood never reached join the nation of the nearest claimed province
-  for (const p of land) {
-    if (owner[p.id] !== -1) continue;
-    let best = -1;
+  // --- province adjacency & edges ---
+  const P = provinceCells.length;
+  const adj: Set<number>[] = Array.from({ length: P }, () => new Set<number>());
+  const edges: BorderEdge[] = [];
+  const cellPolys: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const poly = voronoi.cellPolygon(i);
+    const flat: number[] = [];
+    if (poly) for (const [x, y] of poly) flat.push(x, y);
+    cellPolys.push(flat);
+  }
+  // half-edges of the delaunay triangulation give shared voronoi edges via circumcenters
+  const { halfedges, triangles } = delaunay;
+  const circ = voronoi.circumcenters;
+  for (let e = 0; e < halfedges.length; e++) {
+    const opp = halfedges[e];
+    if (opp < e) continue; // handles -1 (hull) and duplicates
+    const a = triangles[e];
+    const b = triangles[e % 3 === 2 ? e - 2 : e + 1];
+    const pa = cellProvince[a];
+    const pb = cellProvince[b];
+    if (pa === pb) continue;
+    adj[pa].add(pb);
+    adj[pb].add(pa);
+    const t1 = Math.floor(e / 3);
+    const t2 = Math.floor(opp / 3);
+    edges.push({ a: pa, b: pb, x1: circ[t1 * 2], y1: circ[t1 * 2 + 1], x2: circ[t2 * 2], y2: circ[t2 * 2 + 1] });
+  }
+
+  // --- province attributes ---
+  const provinces: ProvinceSeed[] = [];
+  for (let p = 0; p < P; p++) {
+    const cells = provinceCells[p];
+    let cx = 0;
+    let cy = 0;
+    const tCount: Partial<Record<Terrain, number>> = {};
+    for (const c of cells) {
+      cx += xs[c];
+      cy += ys[c];
+      tCount[terrain[c]] = (tCount[terrain[c]] ?? 0) + 1;
+    }
+    cx /= cells.length;
+    cy /= cells.length;
+    // label at the member cell nearest the centroid so it is always inside the province
+    let best = cells[0];
     let bestD = Infinity;
-    for (const q of land) {
-      if (owner[q.id] === -1) continue;
-      const d = Math.hypot(q.center[0] - p.center[0], q.center[1] - p.center[1]);
+    for (const c of cells) {
+      const d = (xs[c] - cx) ** 2 + (ys[c] - cy) ** 2;
       if (d < bestD) {
         bestD = d;
-        best = owner[q.id];
+        best = c;
       }
     }
-    owner[p.id] = best;
+    let t: Terrain = 'plains';
+    let tMax = -1;
+    for (const k of Object.keys(tCount) as Terrain[]) {
+      if (tCount[k]! > tMax) {
+        tMax = tCount[k]!;
+        t = k;
+      }
+    }
+    const isSea = t === 'ocean';
+    const neighbors = Array.from(adj[p]).sort((a, b) => a - b);
+    provinces.push({
+      id: p,
+      terrain: t,
+      isSea,
+      coastal: false,
+      center: [xs[best], ys[best]],
+      area: cells.length,
+      neighbors,
+      resource: null,
+      basePop: 0,
+      component: provinceComponent[p],
+    });
+  }
+  for (const p of provinces) {
+    if (!p.isSea) p.coastal = p.neighbors.some((nb) => provinces[nb].isSea);
+    else p.coastal = p.neighbors.some((nb) => !provinces[nb].isSea);
   }
 
-  // --- nations ---
-  const usedNationNames = new Set<string>();
-  const hueBase = rng.next() * 360;
-  const world = getWorldMode(settings.mapId);
-  const nations: Nation[] = capitals.map((cap, i) => {
-    const authored = world.nations?.[i];
-    const nm = authored ? { name: authored.name, adjective: authored.adjective } : nationName(rng, usedNationNames);
-    const hue = (hueBase + i * 137.508) % 360;
-    const color = authored?.color ?? hsl(hue, 45 + rng.next() * 25, 48 + rng.next() * 12);
-    const flagColors = [color, hsl((hue + 180) % 360, 55, 50), rng.chance(0.5) ? '#f4f1e8' : '#1d1d1d'];
-    const goalsPool = [...INSTITUTIONS];
-    rng.shuffle(goalsPool);
-    const institutions = {} as Record<Institution, number>;
-    for (const k of INSTITUTIONS) institutions[k] = 0;
-    const focus = rng.pick(['economy', 'military', 'science', 'trade'] as const);
-    return {
-      id: i,
-      name: nm.name,
-      adjective: nm.adjective,
-      color,
-      flag: { colors: flagColors, pattern: rng.pick(['vertical', 'horizontal', 'cross', 'diagonal', 'circle'] as const) },
-      isPlayer: false,
-      alive: true,
-      capital: cap,
-      money: 600,
-      debt: 0,
-      stock: { ...emptyStock(), food: 60, wood: 40, iron: 30, coal: 30, steel: 20, munitions: 60, consumer: 20 },
-      reserve: { food: 30, wood: 20, iron: 20, coal: 20, steel: 20, munitions: 60, consumer: 0, fuel: 20, vehicles: 10, oil: 10, electronics: 5, uranium: 15, rare: 5 },
-      autoTrade: true,
-      taxRate: 0.25,
-      econSystem: rng.pick(AI_SYSTEMS),
-      econSwitchCooldown: 0,
-      transition: 0,
-      goals: [goalsPool[0], goalsPool[1]] as [Institution, Institution],
-      institutions,
-      devPoints: 1,
-      devProgress: 0,
-      tech: { researched: [], current: null, progress: 0 },
-      era: 0,
-      stability: 65,
-      happiness: 60,
-      warExhaustion: 0,
-      trust: 70,
-      manpower: 0,
-      clicks: { power: 1, heat: 0, combo: 0, comboTimer: 0, totalClicks: 0, autoRate: 0, upgrades: 0 },
-      personality: {
-        aggression: rng.range(0.1, 0.9),
-        greed: rng.range(0.2, 0.9),
-        loyalty: rng.range(0.2, 1),
-        focus,
-      },
-      nukes: 0,
-      nukeProgress: -1,
-      aiTimer: i % 10,
-      gdp: 0,
-      income: 0,
-      expenses: 0,
-      prosperity: 0,
-      prosperityParts: {},
-      militaryStrength: 0,
-      tradeVolume: 0,
-      history: [],
-      sabotageCooldown: 0,
-      tempMods: [],
-      ledger: {},
-      netGoods: {},
-      research: 0,
-      foodShortage: false,
-      consumerSat: 1,
-      connected: [],
-    };
-  });
-
+  // resources and population
+  const RES_TABLE: Record<Terrain, [Resource | null, number][]> = {
+    plains: [[null, 55], ['iron', 15], ['coal', 15], ['oil', 10], ['uranium', 2], ['rare', 3]],
+    forest: [[null, 60], ['coal', 15], ['iron', 10], ['oil', 5], ['rare', 5], ['uranium', 5]],
+    hills: [[null, 30], ['iron', 30], ['coal', 25], ['rare', 8], ['uranium', 7]],
+    mountains: [[null, 25], ['iron', 25], ['rare', 25], ['uranium', 15], ['coal', 10]],
+    desert: [[null, 35], ['oil', 50], ['uranium', 8], ['rare', 7]],
+    tundra: [[null, 40], ['oil', 30], ['uranium', 10], ['iron', 10], ['coal', 10]],
+    jungle: [[null, 45], ['rare', 25], ['oil', 20], ['iron', 10]],
+    ocean: [[null, 100]],
+  };
+  const POP: Record<Terrain, number> = {
+    plains: 420, forest: 260, hills: 220, mountains: 90, desert: 70, tundra: 60, jungle: 200, ocean: 0,
+  };
   for (const p of provinces) {
     if (p.isSea) continue;
-    const o = owner[p.id];
-    p.owner = o;
-    p.controller = o;
-    if (o === -1) continue;
-    // starting infrastructure
-    if (['plains', 'forest', 'hills', 'jungle'].includes(p.terrain)) p.buildings.farm = 1;
-    if (p.terrain === 'forest' || p.terrain === 'jungle') p.buildings.sawmill = 1;
-    p.roads = 1;
-  }
-  for (const n of nations) {
-    const cap = provinces[n.capital];
-    cap.isCapital = true;
-    cap.pop = Math.round(cap.pop * 1.8 + 300);
-    cap.roads = 2;
-    cap.buildings.barracks = 1;
-    cap.buildings.market_hall = 1;
-    cap.buildings.farm = Math.max(cap.buildings.farm ?? 0, 1);
-    const owned = provinces.filter((p) => p.owner === n.id);
-    // give everyone at least one mine on a deposit if they have one
-    const dep = owned.find((p) => p.resource === 'iron' || p.resource === 'coal');
-    if (dep) dep.buildings.mine = 1;
-    const steelSite = owned.find((p) => p.isCapital);
-    if (steelSite && owned.length > 4) steelSite.buildings.munitions_plant = 1;
-    n.manpower = Math.round(owned.reduce((s, p) => s + p.pop, 0) * 0.01);
-    // enough farms to roughly feed the population (barren nations will still need imports)
-    const need = owned.reduce((s, p) => s + p.pop, 0) * FOOD_PER_POP * 1.05;
-    const farmable = owned.filter((p) => ['plains', 'forest', 'hills', 'jungle'].includes(p.terrain)).sort((a, b) => (FOOD_TERRAIN[b.terrain] ?? 0) * b.pop - (FOOD_TERRAIN[a.terrain] ?? 0) * a.pop);
-    const made = () => owned.reduce((s, p) => s + (p.buildings.farm ?? 0) * 3.5 * (FOOD_TERRAIN[p.terrain] ?? 0.6) * 0.9, 0);
-    for (let guard = 0; guard < 60 && farmable.length && made() < need; guard++) {
-      const p = farmable[guard % farmable.length];
-      if ((p.buildings.farm ?? 0) < 3) p.buildings.farm = (p.buildings.farm ?? 0) + 1;
+    const table = RES_TABLE[p.terrain];
+    const total = table.reduce((s, [, w]) => s + w, 0);
+    let r = rng.next() * total;
+    for (const [res, w] of table) {
+      r -= w;
+      if (r <= 0) {
+        p.resource = res;
+        break;
+      }
     }
+    p.basePop = Math.round(POP[p.terrain] * rng.range(0.55, 1.45) * (p.coastal ? 1.25 : 1) * (p.area / LAND_CELLS_PER_PROVINCE));
   }
 
-  const N = nations.length;
-  const relations: number[][] = Array.from({ length: N }, () => new Array(N).fill(0));
-  for (let a = 0; a < N; a++)
-    for (let b = a + 1; b < N; b++) {
-      const v = Math.round(rng.range(-25, 35));
-      relations[a][b] = v;
-      relations[b][a] = v;
-    }
-
-  const prices = { ...BASE_PRICES };
-  const priceHistory = {} as GameState['priceHistory'];
-  for (const g of Object.keys(prices) as (keyof typeof prices)[]) priceHistory[g] = [prices[g]];
-
-  const state: GameState = {
-    version: SAVE_VERSION,
-    settings,
-    day: 0,
-    rngState: (settings.seed * 2654435761) >>> 0,
-    provinces,
-    nations,
-    divisions: [],
-    pacts: [],
-    wars: [],
-    relations,
-    opinion: [],
-    prices,
-    priceHistory,
-    pendingEvents: [],
-    log: [],
-    nextId: 1,
-    player: -1,
-    gameOver: null,
-    tutorialStep: 0,
-    leaderboard: emptyLeaderboard(0, settings.startYear),
-    notices: [],
-    nextNoticeId: 1,
-    noticeCooldowns: {},
-    historyStep: HISTORY_STEP,
+  const geo: WorldGeometry = {
+    seed,
+    width: MAP_W,
+    height: MAP_H,
+    cellX: Float64Array.from(xs),
+    cellY: Float64Array.from(ys),
+    cellPolys,
+    cellProvince,
+    cellTerrain: terrain,
+    cellElevation: elevation,
+    delaunay,
+    edges,
+    provinceCells,
   };
+  return { geo, provinces };
+}
 
-  // starting armies
-  for (const n of nations) {
-    const owned = provinces.filter((p) => p.owner === n.id).length;
-    const divs = Math.max(2, Math.round(owned / 4));
-    for (let i = 0; i < divs; i++) {
-      state.divisions.push({
-        id: state.nextId++,
-        owner: n.id,
-        type: i % 4 === 3 ? 'artillery' : 'infantry',
-        province: n.capital,
-        strength: 1,
-        org: 1,
-        xp: 0,
-        path: [],
-        moveProgress: 0,
-        training: 0,
-        stance: 'hold',
-      });
-    }
-  }
-  ensureDefaults(state);
-  return { state, map: gm };
+/** Province id at a map coordinate. */
+export function provinceAt(geo: WorldGeometry, x: number, y: number): number {
+  if (x < 0 || y < 0 || x > geo.width || y > geo.height) return -1;
+  const cell = geo.delaunay.find(x, y);
+  return geo.cellProvince[cell];
 }
