@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { EVENT_BY_ID } from '../sim/events';
 import { DIFFICULTY } from '../sim/difficulty';
+import { getWorldMode } from '../data/worlds';
 import { deleteSave, exportSave, importSave, listSaves, loadGame, saveGame, type SaveMeta } from '../save';
 import type { Game } from './game';
 
@@ -83,7 +84,7 @@ export function Menu({ g, onClose, onNew, onHallOfFame }: { g: Game; onClose: ()
       <div class="modal menu" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Menu">
         <h2>Warprime</h2>
         <div class="muted small">
-          {DIFFICULTY[g.state.settings.difficulty].name} · seed {g.state.settings.seed}
+          {getWorldMode(g.state.settings.mapId).name} · {DIFFICULTY[g.state.settings.difficulty].name} · seed {g.state.settings.seed}
         </div>
         <div class="menu-buttons">
           <button onClick={save}>💾 Save game</button>
@@ -142,7 +143,7 @@ const STEPS: { text: string; done: (g: Game) => boolean }[] = [
   { text: '▶ Press Space (or the ▶ buttons) to let time flow. Factories produce, people grow, and every month nations are ranked by Prosperity on the 🏆 Leaderboard.', done: (g) => g.state.day > 20 },
   { text: '🪖 Your army stands at the capital. Click the unit plate to select it, then click a province to move. In a war, click contested provinces to push the attack.', done: (g) => g.selectedDivs.size > 0 },
   { text: '🤝 Diplomacy tab: make allies, sign trade contracts, borrow and lend. Betrayal and nuclear weapons are remembered by everyone.', done: (g) => g.tab === 'diplomacy' },
-  { text: '🏆 There are no victories. Survive until 3000 and lead the world for as long as you can: the Leaderboard tab shows who is #1 now and who has led longest. The game ends early if your nation falls or Earth becomes uninhabitable.', done: () => false },
+  { text: '🏆 There are no victories. Lead the world for as long as you can: the Leaderboard tab shows who is #1 now and who has led longest. The game ends at its mode’s timeline limit, or earlier if your nation falls or the climate collapses.', done: () => false },
 ];
 
 export function Tutorial({ g }: { g: Game }) {
