@@ -2,6 +2,8 @@ import { ECON_SYSTEMS } from '../data/econSystems';
 import { DOCTRINES, doctrineKey, INSTITUTIONS_DEF } from '../data/institutions';
 import type { ModKey, Mods } from '../data/modifiers';
 import { TECH_BY_ID, techsFor } from '../data/techs';
+import { getWorldMode } from '../data/worlds';
+import { climateMods } from './climate';
 import { DIFFICULTY } from './difficulty';
 import { INSTITUTIONS, type GameState } from './state';
 
@@ -15,6 +17,8 @@ export function modSources(state: GameState, nationId: number): ModSource[] {
   const n = state.nations[nationId];
   const out: ModSource[] = [];
   out.push({ source: `Economic system: ${ECON_SYSTEMS[n.econSystem].name}`, mods: ECON_SYSTEMS[n.econSystem].mods });
+  const tribe = getWorldMode(state.settings.mapId).nations?.[n.id];
+  if (tribe?.perks) out.push({ source: `${tribe.perkName ?? 'Tribe perk'} (${tribe.name})`, mods: tribe.perks });
   if (n.transition > 0) out.push({ source: 'Economic transition', mods: { stability: -15, tax: -0.1, factory: -0.1 } });
 
   for (const inst of INSTITUTIONS) {
@@ -36,6 +40,9 @@ export function modSources(state: GameState, nationId: number): ModSource[] {
     for (const k of Object.keys(t.mods) as ModKey[]) techMods[k] = (techMods[k] ?? 0) + t.mods[k]!;
   }
   if (Object.keys(techMods).length) out.push({ source: 'Technology', mods: techMods });
+
+  const cm = climateMods(state);
+  if (cm) out.push({ source: 'Climate damage', mods: cm });
 
   const diff = DIFFICULTY[state.settings.difficulty];
   if (n.isPlayer) {

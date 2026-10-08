@@ -73,7 +73,7 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
   const capitals: number[] = [];
   const candidates = land.filter((p) => p.terrain !== 'mountains' && p.terrain !== 'tundra');
   if (settings.mapId === 'avatar') {
-    const regions: [number, number][] = [[410, 500], [1010, 500], [800, 155], [850, 865]];
+    const regions: [number, number][] = [[410, 500], [1010, 500], [800, 155], [850, 865], [180, 185]];
     for (const [x, y] of regions.slice(0, count)) {
       const nearest = candidates
         .filter((p) => !capitals.includes(p.id))
@@ -243,6 +243,7 @@ export function newGame(settings: Settings, map?: GeneratedMap): { state: GameSt
   for (const n of nations) {
     const cap = provinces[n.capital];
     cap.isCapital = true;
+    if (settings.mapId === 'avatar' && n.name === 'Air Nomads') cap.name = 'Western Air Temple';
     cap.pop = Math.round(cap.pop * 1.8 + 300);
     cap.roads = 2;
     cap.buildings.barracks = 1;

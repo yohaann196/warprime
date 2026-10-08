@@ -50,9 +50,10 @@ function run(s: GameState, days: number): number {
 }
 
 // Pinned from the v2 code before the Phase 3 performance work (commit 85384ca).
+// seed1 and seed7 re-pinned when the climate subsystem (Clean Energy Plants in the AI build scoring) landed.
 const PINNED = {
-  seed1: 8304180722405445,
-  seed7: 665340305505768,
+  seed1: 1771467202686094,
+  seed7: 5149588031409522,
   player9: 6950282814737726,
 };
 

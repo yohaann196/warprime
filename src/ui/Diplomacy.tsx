@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { GOOD_ICONS } from '../data/buildings';
 import { ECON_SYSTEMS } from '../data/econSystems';
-import { evaluateTreaty, clauseLabel, canAnnexPuppet, annexCost, type Clause } from '../sim/diplomacy/pacts';
+import { buyPrice, evaluateTreaty, clauseLabel, canAnnexPuppet, annexCost, type Clause } from '../sim/diplomacy/pacts';
 import { improveRelationsCost, opinion, opinionParts } from '../sim/diplomacy/relations';
 import { aiAcceptsTerms, isCapitulated, scoreFor, termsCost, validateTerms, type PeaceTerms, type WarSide } from '../sim/diplomacy/war';
 import { militaryStrength } from '../sim/military/units';
@@ -212,6 +212,8 @@ const CLAUSE_MENU: { k: ClauseKind; label: string }[] = [
   { k: 'give_province', label: '🗺️ We cede a province' },
   { k: 'ask_province', label: '🗺️ They cede a province' },
   { k: 'war_on', label: '⚔️ They declare war on…' },
+  { k: 'bribe_war', label: '💸 Bribe them to declare war on…' },
+  { k: 'buy_province', label: '🏷️ Buy a province (expensive)' },
 ];
 
 function defaultClause(g: Game, k: ClauseKind, target: number): Clause | null {
@@ -238,6 +240,14 @@ function defaultClause(g: Game, k: ClauseKind, target: number): Clause | null {
     case 'ask_province': {
       const p = ownedProvinces(s, target).find((pid) => !s.provinces[pid].isCapital);
       return p === undefined ? null : { k, province: p };
+    }
+    case 'bribe_war': {
+      const other = s.nations.find((n) => n.alive && n.id !== me && n.id !== target);
+      return other ? { k, nation: other.id, amount: 1500 } : null;
+    }
+    case 'buy_province': {
+      const p = ownedProvinces(s, target).find((pid) => !s.provinces[pid].isCapital && s.provinces[pid].neighbors.some((nb) => s.provinces[nb].owner === me));
+      return p === undefined ? null : { k, province: p, price: buyPrice(s, p) };
     }
     case 'war_on': {
       const other = s.nations.find((n) => n.alive && n.id !== me && n.id !== target);
@@ -390,6 +400,38 @@ function ClauseEditor({ g, target, c, onChange }: { g: Game; target: number; c: 
         </div>
       );
     }
+    case 'buy_province': {
+      const options = ownedProvinces(s, target).filter((pid) => !s.provinces[pid].isCapital && s.provinces[pid].neighbors.some((nb) => s.provinces[nb].owner === me));
+      return (
+        <div>
+          {label}
+          <select value={c.province} onChange={(e) => { const province = Number((e.target as HTMLSelectElement).value); onChange({ ...c, province, price: buyPrice(s, province) }); }} aria-label="Province">
+            {options.map((pid) => (
+              <option key={pid} value={pid}>
+                {s.provinces[pid].name} (asking {fmt(buyPrice(s, pid))})
+              </option>
+            ))}
+          </select>
+          <Num label="offer" value={c.price} step={100} onChange={(v) => onChange({ ...c, price: v })} />
+        </div>
+      );
+    }
+    case 'bribe_war':
+      return (
+        <div>
+          {label}
+          <select value={c.nation} onChange={(e) => onChange({ ...c, nation: Number((e.target as HTMLSelectElement).value) })} aria-label="Target nation">
+            {s.nations
+              .filter((n) => n.alive && n.id !== me && n.id !== target)
+              .map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
+          </select>
+          <Num label="bribe" value={c.amount} step={100} onChange={(v) => onChange({ ...c, amount: v })} />
+        </div>
+      );
     case 'war_on':
       return (
         <div>
@@ -497,12 +539,13 @@ export function PeaceDialog({ g }: { g: Game }) {
         <div class="peace-tabs">
           {(['demand', 'white', 'concede'] as const).map((m) => (
             <button key={m} class={mode === m ? 'on' : ''} onClick={() => { setMode(m); setCede([]); setMoney(0); }}>
-              {m === 'demand' ? 'Demand terms' : m === 'white' ? 'White peace' : 'Offer concessions'}
+              {m === 'demand' ? 'Demand terms' : m === 'white' ? 'White peace' : '💰 Pay for peace'}
             </button>
           ))}
         </div>
         {mode !== 'white' && (
           <div class="peace-body">
+            {mode === 'concede' && <div class="muted small">Buy peace: pay them money and/or give up provinces they occupy. They always accept payment offered for peace.</div>}
             <h4>{mode === 'demand' ? 'Occupied enemy provinces' : 'Our provinces they occupy'}</h4>
             {candidates.length === 0 && <div class="muted small">None. {mode === 'demand' ? 'Occupy enemy land to demand it.' : ''}</div>}
             <div class="cede-list">
@@ -514,7 +557,7 @@ export function PeaceDialog({ g }: { g: Game }) {
               ))}
             </div>
             <label class="numlabel">
-              {mode === 'demand' ? 'Reparations' : 'We pay'}
+              {mode === 'demand' ? 'Reparations (they pay)' : 'We pay them'}
               <input class="num" type="number" min={0} step={100} value={money} onChange={(e) => setMoney(Math.max(0, Number((e.target as HTMLInputElement).value)))} />
             </label>
             {mode === 'demand' && (

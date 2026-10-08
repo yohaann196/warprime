@@ -4,6 +4,8 @@ import { defaultSettings } from '../src/sim/setup';
 import { canResearch, eraYearOpen } from '../src/sim/tech';
 import { generateMap } from '../src/sim/worldgen/geometry';
 import { newGame } from '../src/sim/worldgen';
+import { avatarDay } from '../src/sim/avatar';
+import { mult } from '../src/sim/modifiers';
 
 describe('world modes', () => {
   it('preserves the random fictional world as the default', () => {
@@ -13,13 +15,13 @@ describe('world modes', () => {
     expect(techsFor('random')).toEqual(TECHS);
   });
 
-  it('creates the four named Avatar nations with distinct regional capitals', () => {
+  it('creates the five named Avatar nations with distinct regional capitals', () => {
     const settings = defaultSettings(82, 'realistic', 'avatar');
-    expect(settings).toMatchObject({ mapId: 'avatar', nationCount: 4, startYear: 100, endYear: 180 });
+    expect(settings).toMatchObject({ mapId: 'avatar', nationCount: 5, startYear: 100, endYear: 180 });
     const { state, map } = newGame(settings);
-    expect(state.nations.map((nation) => nation.name)).toEqual(['Fire Nation', 'Earth Kingdom', 'Northern Water Tribe', 'Southern Water Tribe']);
-    expect(state.nations.map((nation) => nation.color)).toEqual(['#c84c39', '#5b9b54', '#4b88c2', '#70b9cf']);
-    expect(new Set(state.nations.map((nation) => nation.capital)).size).toBe(4);
+    expect(state.nations.map((nation) => nation.name)).toEqual(['Fire Nation', 'Earth Kingdom', 'Northern Water Tribe', 'Southern Water Tribe', 'Air Nomads']);
+    expect(state.nations.map((nation) => nation.color)).toEqual(['#c84c39', '#5b9b54', '#4b88c2', '#70b9cf', '#e8b84a']);
+    expect(new Set(state.nations.map((nation) => nation.capital)).size).toBe(5);
     expect(state.nations.every((nation) => state.provinces[nation.capital].owner === nation.id)).toBe(true);
     expect(generateMap(82, 'avatar').provinces.map((province) => province.area)).toEqual(map.provinces.map((province) => province.area));
   });
@@ -54,5 +56,18 @@ describe('world modes', () => {
 
     expect(canResearch(state, nation, capstone)).toBeNull();
     expect(settings.endYear).toBeGreaterThan(erasFor('avatar')[4].year);
+  });
+
+  it('gives each tribe a perk, the Air Nomads fast armies, and a roaming Avatar', () => {
+    const { state } = newGame(defaultSettings(5, 'realistic', 'avatar'));
+    expect(state.provinces[state.nations[4].capital].name).toBe('Western Air Temple');
+    expect(mult(state, 4, 'moveSpeed')).toBeCloseTo(1.6);
+    expect(mult(state, 0, 'moveSpeed')).toBe(1);
+    avatarDay(state);
+    expect(state.avatar!.nation).toBeGreaterThanOrEqual(0);
+    const first = state.avatar!.nation;
+    state.day = state.avatar!.nextDay;
+    avatarDay(state);
+    expect(state.avatar!.nation).not.toBe(first);
   });
 });

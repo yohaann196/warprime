@@ -30,7 +30,7 @@ export function partsTip(n: Nation): string {
   const lines = [`— ${n.name}: ${n.prosperity.toFixed(1)}`];
   for (const [k, v] of Object.entries(n.prosperityParts)) {
     if (k === 'penalty') lines.push(`Penalties: ${v.toFixed(1)}`);
-    else if (PROSPERITY_WEIGHTS[k]) lines.push(`${PROSPERITY_WEIGHTS[k].label}: ${Math.round(v)} × ${PROSPERITY_WEIGHTS[k].weight}`);
+    else if (PROSPERITY_WEIGHTS[k]) lines.push(`${PROSPERITY_WEIGHTS[k].label}: ${Math.round(v)} × ${PROSPERITY_WEIGHTS[k].weight}\n   ↳ ${PROSPERITY_WEIGHTS[k].how}`);
   }
   return lines.join('\n');
 }

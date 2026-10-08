@@ -13,6 +13,9 @@ import { checkMapMatches } from '../save/migrate';
 export type MapMode = 'political' | 'terrain' | 'resources' | 'diplomacy' | 'population';
 export type Tab = 'economy' | 'government' | 'research' | 'military' | 'diplomacy' | 'rankings' | 'log';
 
+/** Orders that need the clock running: pausing to mass troops and strike is not allowed. */
+const LIVE_ONLY: ReadonlySet<Command['type']> = new Set(['recruit', 'declareWar', 'move', 'launchNuke', 'sabotage']);
+
 export const SPEEDS = [0, 2, 5, 12, 30]; // days per real second
 
 export interface Floater {
@@ -141,6 +144,11 @@ export class Game {
 
   cmd(c: Command, quiet = false): CommandResult {
     if (this.state.player < 0) return { ok: false, msg: 'No nation' };
+    if (this.speed === 0 && LIVE_ONLY.has(c.type) && !this.state.gameOver) {
+      const msg = 'Paused: military orders (recruit, move, declare war) only work while time is running.';
+      if (!quiet) this.toast(msg, 'err');
+      return { ok: false, msg };
+    }
     const r = applyCommand(this.state, this.state.player, c);
     if (!quiet && r.msg) this.toast(r.msg, r.ok ? 'ok' : 'err');
     this.checkMapChange();

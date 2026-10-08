@@ -36,6 +36,7 @@ export type BuildingId =
   | 'vehicle_plant'
   | 'electronics_plant'
   | 'power_plant'
+  | 'green_plant'
   | 'university'
   | 'market_hall'
   | 'admin_office'
@@ -72,6 +73,7 @@ export interface Province {
   siege: number; // 0..100 occupation progress by current besieger
   siegeBy: number; // nation sieging, -1 none
   isCapital: boolean;
+  heldSince?: number; // day the current occupier took control (hardens a fresh conquest)
   unrest: number; // 0..100
   clickBoost?: number; // battle-click pressure, decays every tick
   clickBoostBy?: number; // nation that clicked
@@ -400,6 +402,7 @@ export interface GameState {
   notices: Notice[]; // the last 40 headlines
   nextNoticeId: number;
   noticeCooldowns: Record<string, number>; // notice key -> first day it may fire again
+  avatar?: { nation: number; since: number; nextDay: number }; // Avatar mode: where the Avatar currently is
   historyStep: number; // days between Nation.history points (doubles to keep histories short)
   climate?: { damage: number }; // Earth damage 0..100, filled by the climate subsystem
   spectating?: boolean; // the eliminated player keeps watching; the sim runs on, commands stay closed

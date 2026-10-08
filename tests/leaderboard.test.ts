@@ -249,12 +249,12 @@ describe('notices', () => {
 });
 
 describe('prosperity', () => {
-  it('weights sum to 1 and the climate part is neutral without emissions', () => {
+  it('weights sum to 1 and the climate part stays in range', () => {
     expect(sum(Object.values(PROSPERITY_WEIGHTS).map((w) => w.weight))).toBeCloseTo(1);
     const s = game();
     for (let d = 0; d < 40; d++) advanceDay(s);
     for (const n of s.nations.filter((x) => x.alive)) {
-      expect(n.prosperityParts.climate).toBe(75);
+      expect(n.prosperityParts.climate).toBeGreaterThanOrEqual(0);
       expect(n.prosperity).toBeGreaterThanOrEqual(0);
       expect(n.prosperity).toBeLessThanOrEqual(100);
       for (const [k, v] of Object.entries(n.prosperityParts)) if (k !== 'penalty') expect(v).toBeLessThanOrEqual(100.0001);

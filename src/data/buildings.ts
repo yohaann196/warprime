@@ -71,6 +71,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDef> = {
     id: 'power_plant', name: 'Power Plant', icon: '⚡', category: 'civil', desc: 'Burns coal; +20% output per level for factories in this province.',
     cost: 600, work: 100, maxLevel: 3, tech: 'electricity', inputs: { coal: 1 }, workers: 5, upkeep: 0.5,
   },
+  green_plant: {
+    id: 'green_plant', name: 'Clean Energy Plant', icon: '🌱', category: 'civil', desc: 'Wind, solar and hydro. Scrubs emissions and lowers Earth damage (climate worlds only).',
+    cost: 700, work: 110, maxLevel: 5, tech: 'electronics', workers: 8, upkeep: 2,
+  },
   university: {
     id: 'university', name: 'University', icon: '🎓', category: 'civil', desc: '+3 research per day per level.',
     cost: 400, work: 100, maxLevel: 5, workers: 5, upkeep: 1.5,

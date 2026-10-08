@@ -7,7 +7,7 @@
 //   4. trade and prices: auto-trade, contracts, price update
 //   5. climateDay (climate subsystem): damage clamps at 100 but never ends the game itself
 //   6. military: movement -> navalDay (naval subsystem) -> combat -> siege -> readiness
-//   7. wars, opinion, puppets, events
+//   7. avatar (Avatar mode), wars, opinion, puppets, events
 //   8. runAI (planners: economy, military, navy, diplomacy, climate)
 //   9. checkAlive for every nation
 //  10. day++
@@ -15,6 +15,7 @@
 //  12. history (day % state.historyStep)
 //  13. yearly (day % 365): world events, climate history
 //  14. checkEnd: the ONLY code that sets state.gameOver (climate_collapse | eliminated | year_limit)
+import { avatarDay } from './avatar';
 import { runAI } from './ai';
 import { coolClicks } from './clicks';
 import { constructionDay } from './economy/build';
@@ -22,6 +23,7 @@ import { autoTrade, contractsDay, resetTradeVolume, updatePrices } from './econo
 import { nationEconomyDay } from './economy/production';
 import { eventsDay } from './events';
 import { devDay } from './institutions';
+import { climateDay } from './climate';
 import { combatDay, movementDay, readinessDay, siegeDay } from './military/combat';
 import { nukeProgramDay } from './military/nukes';
 import { invalidateMods } from './modifiers';
@@ -58,6 +60,7 @@ export function advanceDay(state: GameState): void {
     nukeProgramDay(state, n.id);
     coolClicks(n);
   }
+  climateDay(state);
   profileLap('economy');
   for (const n of state.nations) autoTrade(state, n);
   contractsDay(state);
@@ -71,6 +74,7 @@ export function advanceDay(state: GameState): void {
   readinessDay(state);
   profileLap('military');
 
+  avatarDay(state);
   warsDay(state);
   opinionDay(state);
   puppetsDay(state);
