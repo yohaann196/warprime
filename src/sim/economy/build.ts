@@ -25,6 +25,7 @@ export function costOf(state: GameState, n: Nation, p: Province, b: BuildingId):
 /** Why a building cannot be built here, or null if it can. */
 export function cannotBuild(state: GameState, n: Nation, p: Province, b: BuildingId): string | null {
   const def = BUILDINGS[b];
+  if (b === 'green_plant' && !state.climate) return 'No climate in this world';
   if (p.owner !== n.id) return 'Not your province';
   if (p.controller !== n.id) return 'Province is occupied';
   if (p.construction) return 'Already constructing here';

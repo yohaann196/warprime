@@ -120,6 +120,7 @@ function buildScore(state: GameState, n: Nation, pid: number, b: BuildingId): nu
       s = f >= 2 && (net.coal ?? 0) > 0 ? 10 : 0;
       break;
     }
+    case 'green_plant': s = (state.climate?.damage ?? 0) > 15 ? 4 + (state.climate!.damage / 10) * (n.personality.loyalty + 0.5) : 0.5; break;
     case 'university': s = 7 + (focus === 'science' ? 12 : 0); break;
     case 'market_hall': s = (5 + (focus === 'trade' ? 10 : 0)) * Math.min(2, p.pop / 400); break;
     case 'admin_office': s = 6; break;

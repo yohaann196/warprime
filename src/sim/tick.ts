@@ -23,6 +23,7 @@ import { autoTrade, contractsDay, resetTradeVolume, updatePrices } from './econo
 import { nationEconomyDay } from './economy/production';
 import { eventsDay } from './events';
 import { devDay } from './institutions';
+import { climateDay } from './climate';
 import { combatDay, movementDay, readinessDay, siegeDay } from './military/combat';
 import { nukeProgramDay } from './military/nukes';
 import { invalidateMods } from './modifiers';
@@ -59,6 +60,7 @@ export function advanceDay(state: GameState): void {
     nukeProgramDay(state, n.id);
     coolClicks(n);
   }
+  climateDay(state);
   profileLap('economy');
   for (const n of state.nations) autoTrade(state, n);
   contractsDay(state);

@@ -23,6 +23,20 @@ function ledgerTip(g: Game): string {
   return lines.join('\n');
 }
 
+function climateTip(g: Game): string {
+  const s = g.state;
+  const n = g.player;
+  const worldE = s.nations.reduce((t, x) => t + (x.alive ? (x.emissions ?? 0) : 0), 0);
+  const worldA = s.nations.reduce((t, x) => t + (x.alive ? (x.abated ?? 0) : 0), 0);
+  return [
+    `— Earth damage: ${s.climate!.damage.toFixed(1)}% (the game ends at 100%)`,
+    `World emissions ${Math.round(worldE)} − clean energy ${Math.round(worldA)} = net ${Math.round(worldE - worldA)} / day`,
+    `Yours: ${Math.round(n.emissions ?? 0)} emitted, ${Math.round(n.abated ?? 0)} scrubbed`,
+    'Factories, power plants, refineries and mines emit.',
+    'Build Clean Energy Plants (needs Electronics) to scrub emissions. Damage above 20% cuts food and happiness for everyone.',
+  ].join('\n');
+}
+
 function modTip(g: Game, key: 'happiness' | 'stability', current: number, extra: string[]): string {
   const lines = [`— ${key === 'happiness' ? 'Happiness' : 'Stability'}: ${Math.round(current)}`, ...extra];
   for (const b of breakdown(g.state, g.state.player, key)) lines.push(`${b.source}: ${b.value >= 0 ? '+' : ''}${Math.round(b.value)}`);
@@ -104,6 +118,15 @@ export function TopBar({ g, onMenu }: { g: Game; onMenu: () => void }) {
           <span class="ico">🏛️</span>
           <b>{Math.round(n.stability)}</b>
         </div>
+        {s.climate && (
+          <div class="stat" data-tip={climateTip(g)} data-testid="climate-chip">
+            <span class="ico">🌍</span>
+            <b class={s.climate.damage >= 75 ? 'neg' : ''}>{Math.round(s.climate.damage)}%</b>
+            <div class="click-meter" style={{ width: '38px' }}>
+              <div class="click-fill" style={{ width: `${s.climate.damage}%`, background: s.climate.damage > 66 ? 'var(--bad)' : s.climate.damage > 33 ? 'var(--gold)' : 'var(--good)' }} />
+            </div>
+          </div>
+        )}
         <div class="stat" data-tip={`— Manpower: ${fmt(n.manpower)}k\nRecruits available for new divisions and reinforcements.`}>
           <span class="ico">🪖</span>
           <b>{fmt(n.manpower)}k</b>

@@ -3,6 +3,7 @@ import { DOCTRINES, doctrineKey, INSTITUTIONS_DEF } from '../data/institutions';
 import type { ModKey, Mods } from '../data/modifiers';
 import { TECH_BY_ID, techsFor } from '../data/techs';
 import { getWorldMode } from '../data/worlds';
+import { climateMods } from './climate';
 import { DIFFICULTY } from './difficulty';
 import { INSTITUTIONS, type GameState } from './state';
 
@@ -39,6 +40,9 @@ export function modSources(state: GameState, nationId: number): ModSource[] {
     for (const k of Object.keys(t.mods) as ModKey[]) techMods[k] = (techMods[k] ?? 0) + t.mods[k]!;
   }
   if (Object.keys(techMods).length) out.push({ source: 'Technology', mods: techMods });
+
+  const cm = climateMods(state);
+  if (cm) out.push({ source: 'Climate damage', mods: cm });
 
   const diff = DIFFICULTY[state.settings.difficulty];
   if (n.isPlayer) {

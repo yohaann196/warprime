@@ -185,7 +185,7 @@ export function ProvincePanel({ g }: { g: Game }) {
 
 const ORDER: BuildingId[] = [
   'farm', 'sawmill', 'mine', 'oil_well', 'steel_mill', 'refinery', 'munitions_plant', 'consumer_factory', 'vehicle_plant', 'electronics_plant',
-  'power_plant', 'university', 'market_hall', 'admin_office', 'barracks', 'fort', 'port',
+  'power_plant', 'green_plant', 'university', 'market_hall', 'admin_office', 'barracks', 'fort', 'port',
 ];
 
 function BuildList({ g, pid }: { g: Game; pid: number }) {
@@ -194,6 +194,7 @@ function BuildList({ g, pid }: { g: Game; pid: number }) {
   const p = s.provinces[pid];
   const shown = ORDER.filter((b) => {
     const def = BUILDINGS[b];
+    if (b === 'green_plant' && !s.climate) return false;
     if (def.resource && (!p.resource || !def.resource.includes(p.resource))) return (p.buildings[b] ?? 0) > 0;
     if (def.terrain && !def.terrain.includes(p.terrain)) return (p.buildings[b] ?? 0) > 0;
     if (def.coastal && !p.coastal) return false;

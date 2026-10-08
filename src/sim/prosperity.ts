@@ -80,7 +80,14 @@ export function computeProsperity(state: GameState): void {
       climate: 0.75 * emissionScore + 0.25 * greenScore,
     };
     let total = 0;
+    let weights = 1;
+    // worlds without climate (Avatar) drop the category and rescale the rest
+    if (!state.climate) {
+      delete parts.climate;
+      weights -= PROSPERITY_WEIGHTS.climate.weight;
+    }
     for (const [k, v] of Object.entries(parts)) total += v * PROSPERITY_WEIGHTS[k].weight;
+    total /= weights;
     // penalty: war exhaustion x0.12 plus up to 25 for the share of land with nuclear fallout
     const penalty = n.warExhaustion * 0.12 + (owned.length ? (fallout / owned.length) * 25 : 0);
     parts.penalty = -penalty;

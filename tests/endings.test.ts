@@ -36,7 +36,7 @@ describe('the end of the game', () => {
     expect(over.allTime.length).toBe(s.nations.length);
     expect(over.allTime.reduce((a, r) => a + r.daysAtTop, 0)).toBe(730); // the last days off the monthly grid count too
     expect(over.crown).toBeGreaterThanOrEqual(0);
-    expect(over.climateDamage).toBeNull();
+    expect(over.climateDamage).toBeGreaterThanOrEqual(0);
     const snapshot = JSON.stringify(s);
     advanceDay(s);
     expect(JSON.stringify(s)).toBe(snapshot);
@@ -104,7 +104,7 @@ describe('the end of the game', () => {
     expect(s.day).toBe(365);
     expect(s.gameOver?.cause).toBe('eliminated');
     expect(s.gameOver?.crown).toBe(fellCrown);
-    expect(s.gameOver?.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: heir, climateDamage: null });
+    expect(s.gameOver?.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: heir, climateDamage: s.climate!.damage });
     expect(s.leaderboard.lastSampleDay).toBe(365);
     expect(s.leaderboard.records.reduce((a, r) => a + r.daysAtTop, 0)).toBe(365);
     advanceDay(s);
@@ -120,7 +120,7 @@ describe('the end of the game', () => {
     const over = s.gameOver!;
     expect(s.day).toBe(365);
     expect(over.cause).toBe('eliminated'); // the elimination outranks the year limit
-    expect(over.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: s.leaderboard.crown, climateDamage: null });
+    expect(over.worldEnd).toEqual({ cause: 'year_limit', day: 365, crown: s.leaderboard.crown, climateDamage: s.climate!.damage });
     expect(s.spectating).toBe(false);
     expect(s.leaderboard.lastSampleDay).toBe(365);
     s.spectating = true; // the UI offers no Spectate once the world has ended; even so nothing moves

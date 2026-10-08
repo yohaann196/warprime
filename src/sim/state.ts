@@ -36,6 +36,7 @@ export type BuildingId =
   | 'vehicle_plant'
   | 'electronics_plant'
   | 'power_plant'
+  | 'green_plant'
   | 'university'
   | 'market_hall'
   | 'admin_office'
