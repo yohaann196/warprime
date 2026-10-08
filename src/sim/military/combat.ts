@@ -5,6 +5,8 @@ import { rand } from '../rng';
 import { atWar, canEnter, divisionsAt, index, isFriendly, log, markDirty, warBetween } from '../query';
 import type { Division, GameState, Nation } from '../state';
 
+const OCCUPATION_HOLD_DAYS = 90;
+
 function eraMult(n: Nation): number {
   return 1 + 0.25 * n.era;
 }
@@ -244,8 +246,10 @@ export function siegeDay(state: GameState): void {
     const fort = p.buildings.fort ?? 0;
     let rate = (power * 3) / (1 + fort * 1.3 + (p.isCapital ? 1.2 : 0) + ((TERRAIN_DEFENSE[p.terrain] ?? 1) - 1) * 2);
     if (isEncircled(state, p.id)) rate *= 2.5;
+    // a fresh conquest is hard to take back at once, so advancing armies are not cut off by raids behind them
+    if (p.controller !== p.owner && p.heldSince !== undefined && state.day - p.heldSince < OCCUPATION_HOLD_DAYS) rate *= 0.3;
     // liberating your own or an ally's land is quick
-    if (p.owner === leader || isFriendly(state, p.owner, leader)) rate *= 3;
+    if (p.owner === leader || isFriendly(state, p.owner, leader)) rate *= 2;
     if ((p.clickBoost ?? 0) > 0 && hostile.some((d) => d.owner === p.clickBoostBy)) rate *= 1 + p.clickBoost! * 1.5;
     if (fort > 0) for (const d of hostile) d.org = Math.max(0.05, d.org - 0.004 * fort);
     p.siege += rate;
@@ -253,6 +257,7 @@ export function siegeDay(state: GameState): void {
       const newCtrl = p.owner === leader || isFriendly(state, p.owner, leader) ? p.owner : leader;
       const oldCtrl = p.controller;
       p.controller = newCtrl;
+      p.heldSince = state.day;
       p.siege = 0;
       p.siegeBy = -1;
       p.devastation = Math.min(1, p.devastation + 0.15);

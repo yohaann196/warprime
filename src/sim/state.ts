@@ -72,6 +72,7 @@ export interface Province {
   siege: number; // 0..100 occupation progress by current besieger
   siegeBy: number; // nation sieging, -1 none
   isCapital: boolean;
+  heldSince?: number; // day the current occupier took control (hardens a fresh conquest)
   unrest: number; // 0..100
   clickBoost?: number; // battle-click pressure, decays every tick
   clickBoostBy?: number; // nation that clicked

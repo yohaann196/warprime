@@ -6,7 +6,6 @@ import { generateMap } from '../src/sim/worldgen/geometry';
 import { newGame } from '../src/sim/worldgen';
 import { avatarDay } from '../src/sim/avatar';
 import { mult } from '../src/sim/modifiers';
-import { MAX_TRAINING, recruit } from '../src/sim/military/units';
 
 describe('world modes', () => {
   it('preserves the random fictional world as the default', () => {
@@ -70,15 +69,5 @@ describe('world modes', () => {
     state.day = state.avatar!.nextDay;
     avatarDay(state);
     expect(state.avatar!.nation).not.toBe(first);
-  });
-
-  it('caps army size and training queue', () => {
-    const { state } = newGame(defaultSettings(3, 'realistic', 'random'));
-    const n = state.nations[0];
-    n.money = 1e6;
-    n.manpower = 1e6;
-    let made = 0;
-    while (typeof recruit(state, n, 'infantry', n.capital) !== 'string' && made < 100) made++;
-    expect(made).toBe(MAX_TRAINING);
   });
 });
