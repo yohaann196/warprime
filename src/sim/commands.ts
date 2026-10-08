@@ -6,7 +6,7 @@ import { raiseInstitution, switchEconSystem } from './institutions';
 import { findPath } from './military/pathfinding';
 import { disband, recruit } from './military/units';
 import { launchNuke, sabotage, startNuke } from './military/nukes';
-import { annexPuppet, breakPact, proposeTreaty, type Clause, type Evaluation } from './diplomacy/pacts';
+import { annexEnclave, annexPuppet, breakPact, proposeTreaty, type Clause, type Evaluation } from './diplomacy/pacts';
 import { improveRelations, insult } from './diplomacy/relations';
 import {
   aiAcceptsTerms,
@@ -58,7 +58,8 @@ export type Command =
   | { type: 'launchNuke'; province: number }
   | { type: 'sabotage'; province: number }
   | { type: 'eventChoice'; index: number; option: number }
-  | { type: 'annexPuppet'; puppet: number };
+  | { type: 'annexPuppet'; puppet: number }
+  | { type: 'annexEnclave'; province: number };
 
 export interface CommandResult {
   ok: boolean;
@@ -253,6 +254,10 @@ function run(state: GameState, nationId: number, cmd: Command): CommandResult {
       state.pendingEvents.splice(cmd.index, 1);
       resolveEvent(state, ev, cmd.option);
       return okMsg();
+    }
+    case 'annexEnclave': {
+      const err = annexEnclave(state, nationId, cmd.province);
+      return err ? fail(err) : okMsg('Enclave annexed');
     }
     case 'annexPuppet': {
       const err = annexPuppet(state, nationId, cmd.puppet);

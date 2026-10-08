@@ -21,7 +21,9 @@ export type Clause =
   | { k: 'trade_buy'; good: Good; amount: number; price: number; years: number }
   | { k: 'loan_give'; amount: number; interest: number; years: number }
   | { k: 'loan_ask'; amount: number; interest: number; years: number }
-  | { k: 'war_on'; nation: number };
+  | { k: 'war_on'; nation: number }
+  | { k: 'bribe_war'; nation: number; amount: number }
+  | { k: 'buy_province'; province: number; price: number };
 
 export function clauseLabel(state: GameState, c: Clause): string {
   const N = (id: number) => state.nations[id]?.name ?? '?';
@@ -41,7 +43,21 @@ export function clauseLabel(state: GameState, c: Clause): string {
     case 'loan_give': return `We lend ${c.amount} at ${Math.round(c.interest * 100)}% for ${c.years}y`;
     case 'loan_ask': return `They lend us ${c.amount} at ${Math.round(c.interest * 100)}% for ${c.years}y`;
     case 'war_on': return `They declare war on ${N(c.nation)}`;
+    case 'bribe_war': return `We pay ${c.amount} for them to declare war on ${N(c.nation)}`;
+    case 'buy_province': return `We buy ${state.provinces[c.province].name} for ${c.price}`;
   }
+}
+
+/** Asking price for a province: deliberately steep, so buying land is a luxury. */
+export function buyPrice(state: GameState, province: number): number {
+  const owner = state.provinces[province].owner;
+  const greed = owner >= 0 ? state.nations[owner].personality.greed : 0.5;
+  return Math.round(provinceValue(state, province) * 40 * (1 + greed * 0.4));
+}
+
+/** Land you could buy or annex must touch your own territory. */
+function touchesNation(state: GameState, province: number, nation: number): boolean {
+  return state.provinces[province].neighbors.some((nb) => state.provinces[nb].owner === nation);
 }
 
 /** Ending a pact. Leaving an ally who is at war (or `treacherous`) is betrayal. */
@@ -205,7 +221,8 @@ export function evaluateTreaty(state: GameState, from: number, to: number, claus
         if (T.money < c.amount * 1.3) add('They lack the funds', -999);
         else add(`Lending ${c.amount}`, -(c.amount / scale) * 3 + c.interest * 100 * 0.5 * c.years * (c.amount / scale) + (F.trust - 50) * 0.3);
         break;
-      case 'war_on': {
+      case 'war_on':
+      case 'bribe_war': {
         if (c.nation === to || c.nation === from) {
           add('Invalid target', -999);
           break;
@@ -220,6 +237,19 @@ export function evaluateTreaty(state: GameState, from: number, to: number, claus
         add('Odds of victory', (ratio - 1) * 25);
         add('Appetite for war', T.personality.aggression * 20 - 25);
         if (warsOf(state, to).length) add('Already fighting', -30);
+        if (c.k === 'bribe_war') add(`Bribe of ${c.amount}`, (c.amount / scale) * 6 * greed);
+        break;
+      }
+      case 'buy_province': {
+        const p = state.provinces[c.province];
+        if (p.owner !== to) add('Not theirs', -999);
+        else if (p.isCapital) add('Never their capital', -999);
+        else if (atWar(state, from, to)) add('We are at war', -999);
+        else {
+          const ask = buyPrice(state, c.province);
+          add(`Asking price ${ask}`, ((c.price - ask) / ask) * 60);
+          if (c.price < ask) add('Offer too low', -20);
+        }
         break;
       }
     }
@@ -238,6 +268,11 @@ export function validateClauses(state: GameState, from: number, to: number, clau
     if (c.k === 'give_goods' && F.stock[c.good] < c.amount) return `Not enough ${c.good}`;
     if (c.k === 'give_province' && state.provinces[c.province].owner !== from) return 'Not your province';
     if (c.k === 'loan_give' && F.money < c.amount) return 'Not enough money to lend';
+    if (c.k === 'bribe_war' && (F.money < c.amount || c.amount <= 0)) return 'Not enough money for the bribe';
+    if (c.k === 'buy_province') {
+      if (F.money < c.price || c.price <= 0) return 'Not enough money to buy it';
+      if (!touchesNation(state, c.province, from)) return 'You can only buy land next to your own';
+    }
     if ((c.k === 'trade_sell' || c.k === 'trade_buy') && (c.amount <= 0 || c.price <= 0 || c.years <= 0)) return 'Invalid trade terms';
   }
   return null;
@@ -269,6 +304,8 @@ export function applyTreaty(state: GameState, from: number, to: number, clauses:
       case 'loan_give': F.money -= c.amount; T.money += c.amount; state.pacts.push({ id: state.nextId++, type: 'loan', a: from, b: to, amount: c.amount, interest: c.interest, start: day, until: day + c.years * 365 }); break;
       case 'loan_ask': T.money -= c.amount; F.money += c.amount; state.pacts.push({ id: state.nextId++, type: 'loan', a: to, b: from, amount: c.amount, interest: c.interest, start: day, until: day + c.years * 365 }); break;
       case 'war_on': declareWar(state, to, c.nation); break;
+      case 'bribe_war': F.money -= c.amount; T.money += c.amount; declareWar(state, to, c.nation); break;
+      case 'buy_province': F.money -= c.price; T.money += c.price; transferProvince(state, c.province, from); break;
     }
   }
   addOpinion(state, to, from, 5, 'Recent agreement', 0.05, 20);
@@ -342,3 +379,46 @@ export function annexPuppet(state: GameState, overlord: number, puppet: number):
   return null;
 }
 
+
+// --------------------------------------------------------------------------------------------
+// Annexing an enclave: land completely surrounded by your territory
+// --------------------------------------------------------------------------------------------
+
+export function enclaveCost(state: GameState, province: number): number {
+  return Math.round(provinceValue(state, province) * 6);
+}
+
+/** Foreign, non-capital, portless land whose every land neighbour is controlled by `nation`. */
+export function isEnclave(state: GameState, nation: number, province: number): boolean {
+  const p = state.provinces[province];
+  if (!p || p.isSea || p.owner < 0 || p.owner === nation || p.isCapital || (p.buildings.port ?? 0) > 0) return false;
+  const land = p.neighbors.filter((nb) => !state.provinces[nb].isSea);
+  return land.length > 0 && land.every((nb) => state.provinces[nb].controller === nation);
+}
+
+/** Why `nation` cannot annex this province, or null when it is a surrounded enclave they can take cheaply. */
+export function canAnnexEnclave(state: GameState, nation: number, province: number): string | null {
+  const p = state.provinces[province];
+  if (!p || p.isSea || p.owner < 0 || p.owner === nation) return 'Not foreign land';
+  if (p.isCapital) return 'Capitals cannot be annexed this way';
+  if (findPact(state, 'alliance', nation, p.owner) || overlordOf(state, p.owner) === nation || overlordOf(state, nation) === p.owner) return 'Cannot annex an ally or overlord’s land';
+  if ((p.buildings.port ?? 0) > 0) return 'A port keeps it connected to the sea';
+  if (!isEnclave(state, nation, province)) return 'Not completely surrounded by your land';
+  if (state.divisions.some((d) => d.province === province && d.owner === p.owner && d.training === 0 && atWar(state, d.owner, nation))) return 'Defenders still hold it';
+  const cost = enclaveCost(state, province);
+  if (state.nations[nation].money < cost) return `Need ${cost} money`;
+  return null;
+}
+
+export function annexEnclave(state: GameState, nation: number, province: number): string | null {
+  const why = canAnnexEnclave(state, nation, province);
+  if (why) return why;
+  const p = state.provinces[province];
+  const old = p.owner;
+  state.nations[nation].money -= enclaveCost(state, province);
+  transferProvince(state, province, nation);
+  addOpinion(state, old, nation, -25, 'Annexed our enclave', 0.015);
+  worldOpinion(state, nation, -2, 'Aggressive expansion', 0.012, [old]);
+  log(state, `${state.nations[nation].name} annexes the surrounded province of ${p.name} from ${state.nations[old].name}.`, 'diplo', [nation, old]);
+  return null;
+}

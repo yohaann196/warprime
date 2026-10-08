@@ -4,6 +4,7 @@ import { cannotBuild, costOf, MAX_ROADS, roadCost } from '../sim/economy/build';
 import { canRecruit, unitCost } from '../sim/military/units';
 import { canLaunchNuke, canSabotage, SABOTAGE_COST } from '../sim/military/nukes';
 import { opinion } from '../sim/diplomacy/relations';
+import { canAnnexEnclave, enclaveCost, isEnclave } from '../sim/diplomacy/pacts';
 import { atWar, divisionsAt } from '../sim/query';
 import { provinceEfficiency, staffing } from '../sim/economy/production';
 import type { BuildingId, UnitType } from '../sim/state';
@@ -60,6 +61,14 @@ export function ProvincePanel({ g }: { g: Game }) {
             </span>
           )}
           {p.controller !== p.owner && p.controller >= 0 && <span class="pill bad">Occupied by {s.nations[p.controller].name}</span>}
+        </div>
+      )}
+
+      {isEnclave(s, s.player, pid) && (
+        <div class="row">
+          <button class="mini" disabled={!!canAnnexEnclave(s, s.player, pid)} onClick={() => g.cmd({ type: 'annexEnclave', province: pid })} data-tip={canAnnexEnclave(s, s.player, pid) ?? `Completely surrounded by your land: annex it cheaply for ${fmt(enclaveCost(s, pid))}`}>
+            🧩 Annex enclave ({fmt(enclaveCost(s, pid))})
+          </button>
         </div>
       )}
 
