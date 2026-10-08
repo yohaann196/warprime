@@ -1,9 +1,14 @@
+import type { Mods } from './modifiers';
+
 export type WorldModeId = 'random' | 'avatar';
 
 export interface WorldNation {
   name: string;
   adjective: string;
   color: string;
+  perkName?: string;
+  perkDesc?: string;
+  perks?: Mods;
 }
 
 export interface WorldMode {
@@ -20,6 +25,8 @@ export interface WorldMode {
   nations?: WorldNation[];
   techThemes?: Record<string, { name: string; desc: string; minYear?: number }>;
   disabledTechs?: string[];
+  /** Years between the Avatar's reincarnations (the Avatar appears in a new nation each time). */
+  avatarYears?: number;
 }
 
 export const WORLD_MODES: Record<WorldModeId, WorldMode> = {
@@ -39,7 +46,7 @@ export const WORLD_MODES: Record<WorldModeId, WorldMode> = {
     subtitle: 'From the Hundred Year War toward Korra',
     description: 'Begin in the world of Avatar: The Last Airbender. Guide a nation through reconstruction, Republic City, and the changing age of Avatar Korra.',
     icon: '🌊',
-    nationCount: 4,
+    nationCount: 5,
     startYear: 100,
     endYear: 180,
     eraNames: ['Hundred Year War', 'Postwar Reconstruction', 'Metalbending Age', 'Republic City', 'The Korra Era'],
@@ -65,11 +72,13 @@ export const WORLD_MODES: Record<WorldModeId, WorldMode> = {
       singularity_project: { name: 'Harmonic Convergence Initiative', desc: 'A long-term project for a new era of human and spirit cooperation.', minYear: 158 },
     },
     disabledTechs: ['nuclear_weapons', 'missile_shield'],
+    avatarYears: 4,
     nations: [
-      { name: 'Fire Nation', adjective: 'Fire Nation', color: '#c84c39' },
-      { name: 'Earth Kingdom', adjective: 'Earth Kingdom', color: '#5b9b54' },
-      { name: 'Northern Water Tribe', adjective: 'Northern Water Tribe', color: '#4b88c2' },
-      { name: 'Southern Water Tribe', adjective: 'Southern Water Tribe', color: '#70b9cf' },
+      { name: 'Fire Nation', adjective: 'Fire Nation', color: '#c84c39', perkName: 'Firebending Might', perkDesc: 'Stronger attacks and industry.', perks: { attack: 0.1, factory: 0.08 } },
+      { name: 'Earth Kingdom', adjective: 'Earth Kingdom', color: '#5b9b54', perkName: 'Unyielding Earth', perkDesc: 'Tougher defenders and more manpower.', perks: { defense: 0.12, manpower: 0.15 } },
+      { name: 'Northern Water Tribe', adjective: 'Northern Water Tribe', color: '#4b88c2', perkName: 'Masters of Healing', perkDesc: 'Faster population growth and research.', perks: { popGrowth: 0.12, research: 0.08 } },
+      { name: 'Southern Water Tribe', adjective: 'Southern Water Tribe', color: '#70b9cf', perkName: 'Hardy Hunters', perkDesc: 'More food, happiness and click power.', perks: { food: 0.1, happiness: 4, clickPower: 0.1 } },
+      { name: 'Air Nomads', adjective: 'Air Nomad', color: '#e8b84a', perkName: 'Sky Bison Riders', perkDesc: 'Armies move 60% faster; serene and stable, but few in number.', perks: { moveSpeed: 0.6, stability: 6, happiness: 5, manpower: -0.3 } },
     ],
   },
 };

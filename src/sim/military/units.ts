@@ -7,12 +7,29 @@ export function unitCost(state: GameState, n: Nation, type: UnitType): number {
   return Math.round(UNITS[type].cost * mult(state, n.id, 'unitCost') * Math.pow(1.4, n.era));
 }
 
+/** Army size limit: keeps wars readable and stops runaway troop piles. Grows with land and era. */
+export function armyCap(state: GameState, n: Nation): number {
+  const land = state.provinces.reduce((c, p) => c + (p.owner === n.id ? 1 : 0), 0);
+  return Math.min(40, 6 + Math.round(land * 1.2) + n.era * 2);
+}
+
+export const MAX_TRAINING = 4; // divisions one nation can train at the same time
+
 export function canRecruit(state: GameState, n: Nation, type: UnitType, province: number): string | null {
   const u = UNITS[type];
   const p = state.provinces[province];
   if (!p || p.owner !== n.id || p.controller !== n.id) return 'Must recruit in your own province';
   if (!p.isCapital && !(p.buildings.barracks ?? 0)) return 'Needs Barracks (or the capital)';
   if (u.tech && !hasTech(state, n.id, u.tech)) return 'Requires technology';
+  let total = 0;
+  let training = 0;
+  for (const d of state.divisions) {
+    if (d.owner !== n.id) continue;
+    total++;
+    if (d.training > 0) training++;
+  }
+  if (total >= armyCap(state, n)) return `Army limit reached (${armyCap(state, n)} divisions)`;
+  if (training >= MAX_TRAINING) return `Only ${MAX_TRAINING} divisions can train at once`;
   if (n.manpower < u.manpower) return `Need ${u.manpower}k manpower`;
   const cost = unitCost(state, n, type);
   if (n.money < cost) return `Need ${cost} money`;

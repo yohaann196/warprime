@@ -22,7 +22,8 @@ export type ModKey =
   | 'happiness'
   | 'stability'
   | 'autoClick'
-  | 'partnerRelations';
+  | 'partnerRelations'
+  | 'moveSpeed';
 
 export type Mods = Partial<Record<ModKey, number>>;
 
@@ -52,6 +53,7 @@ export const MOD_LABELS: Record<ModKey, string> = {
   stability: 'Stability',
   autoClick: 'Auto-clicks / day',
   partnerRelations: 'Relations with trade partners',
+  moveSpeed: 'Army movement speed',
 };
 
 export function formatMod(key: ModKey, v: number): string {

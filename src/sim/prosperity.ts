@@ -3,16 +3,16 @@ import { militaryStrength } from './military/units';
 import { nationPop, neighborsOf, ownedProvinces } from './query';
 import type { GameState, Nation } from './state';
 
-export const PROSPERITY_WEIGHTS: Record<string, { label: string; weight: number; desc: string }> = {
-  wealth: { label: 'Wealth per person', weight: 0.26, desc: 'GDP per capita relative to the richest nation' },
-  economy: { label: 'Economic size', weight: 0.14, desc: 'Total GDP relative to the largest economy' },
-  wellbeing: { label: 'Wellbeing', weight: 0.15, desc: 'Average of happiness and stability' },
-  population: { label: 'Population', weight: 0.08, desc: 'Population relative to the most populous nation' },
-  technology: { label: 'Technology', weight: 0.1, desc: 'Technologies researched relative to the most advanced nation' },
-  trade: { label: 'Trade', weight: 0.08, desc: 'Trade volume relative to the biggest trader' },
-  security: { label: 'Security', weight: 0.08, desc: 'Military strength versus neighbours' },
-  reputation: { label: 'Reputation', weight: 0.05, desc: 'Trustworthiness in the eyes of the world' },
-  climate: { label: 'Climate responsibility', weight: 0.06, desc: 'Fossil emissions per unit of GDP vs the world average, plus green investment' },
+export const PROSPERITY_WEIGHTS: Record<string, { label: string; weight: number; desc: string; how: string }> = {
+  wealth: { label: 'Wealth per person', weight: 0.26, desc: 'GDP per capita relative to the richest nation', how: 'Raise GDP faster than your population grows: build Factories and Markets, research, keep taxes fair.' },
+  economy: { label: 'Economic size', weight: 0.14, desc: 'Total GDP relative to the largest economy', how: 'Own more productive provinces: build Farms, Mines and Factories and conquer or annex land.' },
+  wellbeing: { label: 'Wellbeing', weight: 0.15, desc: 'Average of happiness and stability', how: 'Keep happiness and stability up: stable taxes, consumer goods, institutions, and avoid long wars.' },
+  population: { label: 'Population', weight: 0.08, desc: 'Population relative to the most populous nation', how: 'Hold more land and food; Farms and avoiding famine and war devastation grow people.' },
+  technology: { label: 'Technology', weight: 0.1, desc: 'Technologies researched relative to the most advanced nation', how: 'Research more technologies: keep the Research tab busy and build Universities.' },
+  trade: { label: 'Trade', weight: 0.08, desc: 'Trade volume relative to the biggest trader', how: 'Sell goods on the market and sign trade pacts; auto-trade counts.' },
+  security: { label: 'Security', weight: 0.08, desc: 'Military strength versus neighbours', how: 'Keep an army at least ~70% as strong as your strongest neighbour (capped at 100).' },
+  reputation: { label: 'Reputation', weight: 0.05, desc: 'Trustworthiness in the eyes of the world', how: 'Keep treaties, avoid surprise wars and insults; trust slowly recovers.' },
+  climate: { label: 'Climate responsibility', weight: 0.06, desc: 'Fossil emissions per unit of GDP vs the world average, plus green investment', how: 'Cut emissions per GDP and fund green programmes.' },
 };
 
 /** Technologies counted for the relative technology score. */
@@ -81,6 +81,7 @@ export function computeProsperity(state: GameState): void {
     };
     let total = 0;
     for (const [k, v] of Object.entries(parts)) total += v * PROSPERITY_WEIGHTS[k].weight;
+    // penalty: war exhaustion x0.12 plus up to 25 for the share of land with nuclear fallout
     const penalty = n.warExhaustion * 0.12 + (owned.length ? (fallout / owned.length) * 25 : 0);
     parts.penalty = -penalty;
     n.prosperity = Math.max(0, total - penalty);

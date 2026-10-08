@@ -40,7 +40,7 @@ export function movementDay(state: GameState): void {
     const dist = Math.hypot(q.center[0] - here.center[0], q.center[1] - here.center[1]);
     const terrain = u.ignoresTerrain ? 1 : q.isSea ? 0.8 : TERRAIN_MOVE[q.terrain] ?? 1;
     const roads = 1 + 0.12 * ((here.roads + q.roads) / 2);
-    const days = Math.max(1, (dist * terrain) / (u.speed * 9 * roads));
+    const days = Math.max(1, (dist * terrain) / (u.speed * 9 * roads * mult(state, d.owner, 'moveSpeed')));
     d.moveProgress += 1 / days;
     if (d.moveProgress >= 1) {
       d.moveProgress = 0;

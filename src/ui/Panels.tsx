@@ -392,7 +392,7 @@ export function LeaderboardPanel({ g }: { g: Game }) {
                     <b class="neg">{v.toFixed(1)}</b>
                   </div>
                 ) : (
-                  <div key={k} class="mod" data-tip={PROSPERITY_WEIGHTS[k]?.desc}>
+                  <div key={k} class="mod" data-tip={PROSPERITY_WEIGHTS[k] ? `${PROSPERITY_WEIGHTS[k].desc}\nHow to raise it: ${PROSPERITY_WEIGHTS[k].how}\nContributes up to ${Math.round(PROSPERITY_WEIGHTS[k].weight * 100)} of 100 points.` : undefined}>
                     <span>
                       {PROSPERITY_WEIGHTS[k]?.label ?? k} <small class="muted">×{PROSPERITY_WEIGHTS[k]?.weight}</small>
                     </span>
@@ -405,6 +405,10 @@ export function LeaderboardPanel({ g }: { g: Game }) {
           <Section title="How it works">
             <ul class="help">
               <li>There are no victories. Survive, and stay on top of the world for as long as you can.</li>
+              <li>
+                <b>Score</b>: each category is 0–100 (mostly relative to the best nation), multiplied by its weight, then summed. Hover a row in Your
+                score to see how to raise it. War exhaustion and nuclear fallout subtract points.
+              </li>
               <li>
                 <b>Current</b>: every month all nations are ranked on the Prosperity Index. The #1 holds the crown 👑; a challenger takes it with a
                 clear lead or two months in a row at the top.
