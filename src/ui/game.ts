@@ -9,6 +9,7 @@ import { invalidateMods } from '../sim/modifiers';
 import type { GameState, NoticeTone, Settings } from '../sim/state';
 import { autosave, buildHallEntry, recordRun } from '../save';
 import { checkMapMatches } from '../save/migrate';
+import { PlaybackRecorder } from './playback';
 
 export type MapMode = 'political' | 'terrain' | 'resources' | 'diplomacy' | 'population';
 export type Tab = 'economy' | 'government' | 'research' | 'military' | 'diplomacy' | 'rankings' | 'log';
@@ -61,6 +62,7 @@ export class Game {
   toasts: Toast[] = [];
   screen: 'menu' | 'setup' | 'playing' = 'menu';
   peaceWar = -1;
+  playback = new PlaybackRecorder();
   private listeners = new Set<Listener>();
   private acc = 0;
   private lastFrame = 0;
@@ -104,6 +106,8 @@ export class Game {
     choosePlayerNation(this.state, setup);
     warmUp(this.state);
     this.state.runId = newRunId(this.state.settings.seed);
+    this.playback.reset();
+    this.playback.tick(this.state);
     this.syncNotices();
     this.screen = 'playing';
     this.speed = 0;
@@ -129,6 +133,8 @@ export class Game {
     this.syncNotices();
     markDirty();
     invalidateMods();
+    this.playback.reset();
+    this.playback.tick(state);
     this.screen = 'playing';
     this.speed = 0;
     this.selectedProvince = state.player >= 0 ? state.nations[state.player].capital : -1;
@@ -269,6 +275,7 @@ export class Game {
           this.toast('Simulation error — game paused. Please save and report it.', 'err');
           break;
         }
+        this.playback.tick(s);
         this.acc -= 1;
         steps++;
         ticked = true;
