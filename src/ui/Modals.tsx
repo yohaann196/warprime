@@ -79,6 +79,23 @@ export function Menu({ g, onClose, onNew, onHallOfFame }: { g: Game; onClose: ()
       }
     });
   };
+  const [rendering, setRendering] = useState(false);
+  const timelapse = async () => {
+    setRendering(true);
+    setMsg('Rendering timelapse…');
+    try {
+      const blob = await g.playback.render(g.state, g.map);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `warprime-timelapse-${g.state.day}.webm`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      setMsg('Timelapse downloaded.');
+    } catch (e) {
+      setMsg('Could not render timelapse: ' + (e as Error).message);
+    }
+    setRendering(false);
+  };
   return (
     <div class="modal-back" onClick={onClose}>
       <div class="modal menu" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Menu">
@@ -89,6 +106,9 @@ export function Menu({ g, onClose, onNew, onHallOfFame }: { g: Game; onClose: ()
         <div class="menu-buttons">
           <button onClick={save}>💾 Save game</button>
           <button onClick={download}>⬇️ Export save file</button>
+          <button disabled={rendering || !g.playback.supported} onClick={timelapse} data-tip="Download a sped-up video of how the map changed since this game (or load) began">
+            🎞️ Download timelapse
+          </button>
           <label class="file-btn">
             ⬆️ Import save file
             <input type="file" accept="application/json,.json" onChange={upload} />
